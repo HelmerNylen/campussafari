@@ -1,0 +1,28 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+	<title>Campus Safari</title>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<meta name="description" content="Game of the Year 2021">
+	<!--<meta name="keywords" content="Campus, Fysik, Teknisk Fysik, Fysiksektionen, KTH">
+	<meta name="author" content="Pyro & Cryo">
+	<meta name="theme-color" content="#069080">-->
+
+	<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700&display=swap" rel="stylesheet" />
+	<!--<link rel="stylesheet" type="text/css" href="css/style.css">
+	<link rel="icon" type="image/png" href="img/fadderietslogga.png" />-->
+
+	<script type="text/javascript" src="js/levelEditor.js"></script>
+</head>
+<body>
+	<canvas id="gameboard" width="768" height="512" style="border:1px solid #000;"></canvas>
+	<script type="text/javascript">
+		let le;
+		window.onload = () => {
+			le = new LevelEditor();
+		};
+	</script>
+</body>
+</html>
+
