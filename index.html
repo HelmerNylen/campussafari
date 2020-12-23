@@ -13,16 +13,47 @@
 	<!--<link rel="stylesheet" type="text/css" href="css/style.css">
 	<link rel="icon" type="image/png" href="img/fadderietslogga.png" />-->
 
-	<script type="text/javascript" src="js/levelEditor.js"></script>
+	<script type="text/javascript" src="js/loader.js"></script>
 </head>
 <body>
 	<canvas id="gameboard" width="768" height="512" style="border:1px solid #000;"></canvas>
 	<script type="text/javascript">
-		let le;
 		window.onload = () => {
-			le = new LevelEditor();
+			loadResources([
+				["tilesets/roguelike-modern-city-pack.png", Image, (i) => console.log(i)],
+				["audio/soundtrack/porthos.mp3", Audio, (a) => console.log(a)],
+				["test.json", JSON, (j) => console.log(j)]
+			], Image, (progress, total) => {
+				console.log(`Loaded ${progress} of ${total} items`);
+			}).then((items) => {
+				console.log("All items loaded!");
+				console.log(items);
+				
+				let music = items[1];
+				music.volume = 0.3;
+				music.loop = true;
+				window.addEventListener('click', e => {
+					if (music.paused)
+						music.play();
+					else
+						music.pause();
+				});
+
+				document.getElementById("gameboard").getContext('2d').drawImage(items[0], 0, 0);
+				let json = document.createElement('code');
+				json.textContent = JSON.stringify(items[2]);
+				document.body.appendChild(json);
+			}).catch(reason => {
+				console.log("Could not load all resources");
+				console.log(reason);
+
+				let fail = document.createElement('div');
+				fail.innerHTML = `Man kan inte läsa in jsonfiler från sin egen dator hursomhelst om man bara öppnar index.html i webbläsaren. Kör <code>python -m http.server -b 0.0.0.0</code> och öppna <a href="localhost:8000" target="_blank">localhost:8000</a>.`;
+				document.body.appendChild(fail);
+			});
 		};
 	</script>
+	<br />
 </body>
 </html>
 
