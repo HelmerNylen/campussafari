@@ -13,12 +13,29 @@
 	<!--<link rel="stylesheet" type="text/css" href="css/style.css">
 	<link rel="icon" type="image/png" href="img/fadderietslogga.png" />-->
 
+	<script type="text/javascript" src="js/tileset.js"></script>
 	<script type="text/javascript" src="js/loader.js"></script>
+	<script type="text/javascript" src="js/level.js"></script>
 </head>
 <body>
 	<canvas id="gameboard" width="768" height="512" style="border:1px solid #000;"></canvas>
 	<script type="text/javascript">
 		window.onload = () => {
+			loadResources("levels/test.json", JSON).then(items => {
+				Level.drawTerrain(items[0]).then(canvas => {
+					document.getElementById("gameboard").getContext('2d').drawImage(canvas, 0, 0);
+				});
+			}, reason => {
+				console.log("Could not load all resources");
+				console.log(reason);
+
+				let fail = document.createElement('div');
+				fail.innerHTML = `Man kan inte läsa in jsonfiler från sin egen dator hursomhelst om man bara öppnar index.html i webbläsaren. Kör <code>python -m http.server -b 0.0.0.0</code> och öppna <a href="localhost:8000" target="_blank">localhost:8000</a>.`;
+				document.body.appendChild(fail);
+			});
+
+
+			/*
 			loadResources([
 				["tilesets/roguelike-modern-city-pack.png", Image, (i) => console.log(i)],
 				["audio/soundtrack/porthos.mp3", Audio, (a) => console.log(a)],
@@ -43,14 +60,13 @@
 				let json = document.createElement('code');
 				json.textContent = JSON.stringify(items[2]);
 				document.body.appendChild(json);
-			}).catch(reason => {
-				console.log("Could not load all resources");
-				console.log(reason);
 
-				let fail = document.createElement('div');
-				fail.innerHTML = `Man kan inte läsa in jsonfiler från sin egen dator hursomhelst om man bara öppnar index.html i webbläsaren. Kör <code>python -m http.server -b 0.0.0.0</code> och öppna <a href="localhost:8000" target="_blank">localhost:8000</a>.`;
-				document.body.appendChild(fail);
-			});
+				document.body.appendChild(document.createElement('br'));
+
+				let tileset = new Tileset(items[0], 16, 1);
+				document.body.appendChild(tileset.tilesMerged(31, 16, 3, 2));
+
+			});*/
 		};
 	</script>
 	<br />

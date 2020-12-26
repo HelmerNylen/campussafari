@@ -8,8 +8,11 @@ function loadResources(resources, defaultType = Image, onUpdate = null) {
 	let progress = 0;
 	let items = [];
 
+	if (typeof(resources) === "string")
+		resources = [resources];
+
 	for (let resource of resources) {
-		if (resource instanceof String)
+		if (typeof(resource) === "string")
 			resource = [resource];
 
 		let path = resource[0];
