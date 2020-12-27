@@ -48,12 +48,12 @@ class Level {
 			});
 		}
 
-		document.body.appendChild(document.createTextNode("Patches in level: "));
+		/*document.body.appendChild(document.createTextNode("Patches in level: "));
 		patches.forEach((p, i) => {
 			if (i > 0)
 				document.body.appendChild(document.createTextNode(", "));
 			document.body.appendChild(p);
-		});
+		});*/
 
 		return canvas;
 	}

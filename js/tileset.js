@@ -9,6 +9,19 @@ class Tileset {
 		this.height = Math.floor((this.image.height + this.sepY) / (this.tilesizeY + this.sepY));
 	}
 
+	pixelToIndexX(x) {
+		return x / (this.tilesizeX + this.sepX);
+	}
+	pixelToIndexY(y) {
+		return y / (this.tilesizeY + this.sepY);
+	}
+	indexToPixelX(x) {
+		return x * (this.tilesizeX + this.sepX);
+	}
+	indexToPixelY(y) {
+		return y * (this.tilesizeY + this.sepY);
+	}
+
 	tile(x, y) {
 		return this.tilesMerged(x, y);
 	}
@@ -44,8 +57,7 @@ class Tileset {
 		for (let j = 0; j < height; j++) {
 			for (let i = 0; i < width; i++) {
 				ctx.drawImage(
-					this.image, (x + i) * (this.tilesizeX + this.sepX),
-					(y + j) * (this.tilesizeY + this.sepY),
+					this.image, this.indexToPixelX(x + i), this.indexToPixelY(y + j),
 					this.tilesizeX, this.tilesizeY,
 					i * this.tilesizeX, j * this.tilesizeY,
 					this.tilesizeX, this.tilesizeY

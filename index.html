@@ -16,9 +16,11 @@
 	<script type="text/javascript" src="js/tileset.js"></script>
 	<script type="text/javascript" src="js/loader.js"></script>
 	<script type="text/javascript" src="js/level.js"></script>
+	<script type="text/javascript" src="js/editor.js"></script>
 </head>
 <body>
 	<canvas id="gameboard" width="768" height="512" style="border:1px solid #000;"></canvas>
+	<p><button onclick="Editor.setupEditor(this)">Level editor</button></p>
 	<script type="text/javascript">
 		window.onload = () => {
 			loadResources("levels/test.json", JSON).then(items => {
