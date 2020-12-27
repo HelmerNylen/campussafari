@@ -4,13 +4,13 @@ class Level {
 
 		let tilesets = json.tilesets.map((ts, i) => new Tileset(
 			images[i],
-			ts["tilesizeX"] || ts["tilesize"],
-			ts["separationX"] || ts["separation"],
-			ts["tilesizeY"] || ts["tilesize"],
-			ts["separationY"] || ts["separation"]
+			ts['tilesizeX'] || ts['tilesize'],
+			ts['separationX'] || ts['separation'],
+			ts['tilesizeY'] || ts['tilesize'],
+			ts['separationY'] || ts['separation']
 		));
 		
-		let patches = json.terrain.patches.map(p => tilesets[p.tileset].tilesMerged(p.x, p.y, p["width"], p["height"]));
+		let patches = json.terrain.patches.map(p => tilesets[p.tileset].tilesMerged(p.x, p.y, p['width'], p['height']));
 		
 		let canvas = document.createElement('canvas', { alpha: false });
 		canvas.width = json.terrain.cellsize * json.terrain.width;

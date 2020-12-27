@@ -1,5 +1,4 @@
 class Editor {
-
 	static get tilesets() {
 		return [
 			"exterior-32x32-town-tileset.png",
@@ -11,120 +10,174 @@ class Editor {
 		].map(f => "tilesets/" + f);
 	}
 
-	static viewTileset(canvas, tileset) {
-		canvas.width = tileset.image.width;
-		canvas.height = tileset.image.height;
-		let ctx = canvas.getContext('2d');
-		ctx.clearRect(0, 0, canvas.width, canvas.height);
+	constructor(tilesets, canvas, tilesetName, tilesizeInput, separationInput) {
+		this.tilesets = tilesets;
+		this.tilesetInd = 0;
+		this.tilesetCanvas = canvas;
+		this.tilesetBackground = "clear";
+		this.tilesetName = tilesetName;
+		this.tilesizeInput = tilesizeInput;
+		this.separationInput = separationInput;
+		this.resetMark();
+		this.viewTileset();
+		this.updateFields();
+	}
+
+	get currentTileset() {
+		return this.tilesets[this.tilesetInd];
+	}
+
+	viewTileset() {
+		const tileset = this.currentTileset;
+		this.tilesetCanvas.width = tileset.image.width;
+		this.tilesetCanvas.height = tileset.image.height;
+
+		let ctx = this.tilesetCanvas.getContext('2d');
+		if (this.tilesetBackground === "clear")
+			ctx.clearRect(0, 0, this.tilesetCanvas.width, this.tilesetCanvas.height);
+		else {
+			ctx.fillStyle = this.tilesetBackground;
+			ctx.fillRect(0, 0, this.tilesetCanvas.width, this.tilesetCanvas.height);
+		}
 		ctx.drawImage(tileset.image, 0, 0);
 		ctx.strokeStyle = "red";
 		ctx.strokeRect(
-			tileset.indexToPixelX(canvas.markX),
-			tileset.indexToPixelY(canvas.markY),
-			tileset.indexToPixelX(canvas.markX + canvas.markWidth) - tileset.indexToPixelX(canvas.markX),
-			tileset.indexToPixelY(canvas.markY + canvas.markHeight) - tileset.indexToPixelY(canvas.markY)
+			tileset.indexToPixelX(this.markX),
+			tileset.indexToPixelY(this.markY),
+			tileset.indexToPixelX(this.markX + this.markWidth) - tileset.indexToPixelX(this.markX),
+			tileset.indexToPixelY(this.markY + this.markHeight) - tileset.indexToPixelY(this.markY)
 		);
 	}
 
-	static resetMark(canvas) {
-		canvas.markX = 0;
-		canvas.markY = 0;
-		canvas.markWidth = 1;
-		canvas.markHeight = 1;
+	changeTileset(prev) {
+		this.tilesetInd = (this.tilesetInd + this.tilesets.length + (prev ? -1 : 1)) % this.tilesets.length;
+		this.resetMark();
+		this.viewTileset();
+		this.updateFields();
+	}
+
+	changeTilesize(value) {
+		this.currentTileset.tilesizeX = value;
+		this.currentTileset.tilesizeY = value;
+		this.viewTileset();
+	}
+
+	changeSeparation(value) {
+		this.currentTileset.sepX = value;
+		this.currentTileset.sepY = value;
+		this.viewTileset();
+	}
+
+	updateFields() {
+		this.tilesetName.textContent = Editor.tilesets[this.tilesetInd];
+		this.tilesizeInput.value = this.currentTileset.tilesizeX;
+		this.separationInput.value = this.currentTileset.sepX;
+	}
+
+	resetMark() {
+		this.markX = 0;
+		this.markY = 0;
+		this.markWidth = 1;
+		this.markHeight = 1;
+	}
+
+	getPatch() {
+		let patch = {
+			x: this.markX,
+			y: this.markY
+		};
+		if (this.markWidth !== 1 || this.markHeight !== 1) {
+			patch.width = this.markWidth;
+			patch.height = this.markHeight;
+		}
+		document.body.appendChild(document.createTextNode(" "));
+		document.body.appendChild(this.currentTileset.tilesMerged(patch.x, patch.y, patch['width'], patch['height']));
 	}
 
 	static async setupEditor(setupButton) {
-		const tilesets = (await loadResources(this.tilesets)).map(i => new Tileset(i, 32));
+		let tilesets = (await loadResources(this.tilesets)).map(i => new Tileset(i, 32));
 		setupButton.remove();
+		let tilesetCanvas = document.createElement('canvas');
 
-		let tilesetPreview = document.createElement('canvas');
-		tilesetPreview.tilesetInd = 0;
-		this.resetMark(tilesetPreview);
-		this.viewTileset(tilesetPreview, tilesets[tilesetPreview.tilesetInd]);
+		// Tileset parameters
+		let tilesetName = document.createTextNode("Tileset name");
+		let tilesizeInput = document.createElement('input');
+		tilesizeInput.type = "number";
+		let separationInput = document.createElement('input');
+		separationInput.type = "number";
 
-		let tilesetName = document.createTextNode(this.tilesets[tilesetPreview.tilesetInd]);
-		let tilesize = document.createElement('input');
-		tilesize.type = "number";
-		tilesize.addEventListener('change', e => {
-			tilesets[tilesetPreview.tilesetInd].tilesizeX = 1 * tilesize.value;
-			tilesets[tilesetPreview.tilesetInd].tilesizeY = 1 * tilesize.value;
-			this.viewTileset(tilesetPreview, tilesets[tilesetPreview.tilesetInd]);
-		});
-		let separation = document.createElement('input');
-		separation.type = "number";
-		separation.addEventListener('change', e => {
-			tilesets[tilesetPreview.tilesetInd].sepX = 1 * separation.value;
-			tilesets[tilesetPreview.tilesetInd].sepY = 1 * separation.value;
-			this.viewTileset(tilesetPreview, tilesets[tilesetPreview.tilesetInd]);
-		});
-
-		const updateFields = () => {
-			tilesetName.textContent = this.tilesets[tilesetPreview.tilesetInd];
-			tilesize.value = tilesets[tilesetPreview.tilesetInd].tilesizeX;
-			separation.value = tilesets[tilesetPreview.tilesetInd].sepX;
-		};
-		updateFields();
+		let editor = new Editor(tilesets, tilesetCanvas, tilesetName, tilesizeInput, separationInput);
+		tilesizeInput.addEventListener('change', () => editor.changeTilesize(1 * tilesizeInput.value));
+		separationInput.addEventListener('change', () => editor.changeSeparation(1 * separationInput.value));
 
 		// Selection of tiles
-		tilesetPreview.addEventListener('mousedown', e => {
-			let rect = tilesetPreview.getBoundingClientRect();
-			tilesetPreview.markX = e.clientX - rect.left;
-			tilesetPreview.markY = e.clientY - rect.top;
+		tilesetCanvas.addEventListener('mousedown', e => {
+			let rect = tilesetCanvas.getBoundingClientRect();
+			editor.markX = e.clientX - rect.left;
+			editor.markY = e.clientY - rect.top;
 		});
-		tilesetPreview.addEventListener('mouseup', e => {
-			let rect = tilesetPreview.getBoundingClientRect();
+		tilesetCanvas.addEventListener('mouseup', e => {
+			let rect = tilesetCanvas.getBoundingClientRect();
 			let x2 = e.clientX - rect.left;
 			let y2 = e.clientY - rect.top;
-			if (x2 < tilesetPreview.markX)
-				[x2, tilesetPreview.markX] = [tilesetPreview.markX, x2];
-			if (y2 < tilesetPreview.markY)
-				[y2, tilesetPreview.markY] = [tilesetPreview.markY, y2];
+			if (x2 < editor.markX)
+				[x2, editor.markX] = [editor.markX, x2];
+			if (y2 < editor.markY)
+				[y2, editor.markY] = [editor.markY, y2];
 			
-			tilesetPreview.markX = Math.floor(tilesets[tilesetPreview.tilesetInd].pixelToIndexX(tilesetPreview.markX));
-			tilesetPreview.markY = Math.floor(tilesets[tilesetPreview.tilesetInd].pixelToIndexY(tilesetPreview.markY));
-			let x = Math.ceil(tilesets[tilesetPreview.tilesetInd].pixelToIndexY(x2));
-			let y = Math.ceil(tilesets[tilesetPreview.tilesetInd].pixelToIndexY(y2));
-			tilesetPreview.markWidth = Math.max(1, x - tilesetPreview.markX);
-			tilesetPreview.markHeight = Math.max(1, y - tilesetPreview.markY);
+			editor.markX = Math.floor(editor.currentTileset.pixelToIndexX(editor.markX));
+			editor.markY = Math.floor(editor.currentTileset.pixelToIndexY(editor.markY));
+			let x = Math.ceil(editor.currentTileset.pixelToIndexY(x2));
+			let y = Math.ceil(editor.currentTileset.pixelToIndexY(y2));
+			editor.markWidth = Math.max(1, x - editor.markX);
+			editor.markHeight = Math.max(1, y - editor.markY);
 			
-			this.viewTileset(tilesetPreview, tilesets[tilesetPreview.tilesetInd]);
+			editor.viewTileset();
 		});
 
 		// Buttons to switch tileset
 		let nextTilesetButton = document.createElement('button');
 		nextTilesetButton.textContent = "Next";
-		nextTilesetButton.addEventListener('click', e => {
-			tilesetPreview.tilesetInd = (tilesetPreview.tilesetInd + 1) % tilesets.length;
-			this.resetMark(tilesetPreview);
-			this.viewTileset(tilesetPreview, tilesets[tilesetPreview.tilesetInd]);
-			updateFields();
-		});
+		nextTilesetButton.addEventListener('click', () => editor.changeTileset(false));
 
 		let prevTilesetButton = document.createElement('button');
 		prevTilesetButton.textContent = "Previous";
-		prevTilesetButton.addEventListener('click', e => {
-			tilesetPreview.tilesetInd = (tilesetPreview.tilesetInd + tilesets.length - 1) % tilesets.length;
-			this.resetMark(tilesetPreview);
-			this.viewTileset(tilesetPreview, tilesets[tilesetPreview.tilesetInd]);
-			updateFields();
+		prevTilesetButton.addEventListener('click', () => editor.changeTileset(true));
+
+		// Button to change tileset background
+		let backgroundButton = document.createElement('button');
+		backgroundButton.textContent = "Change background";
+		backgroundButton.addEventListener('click', () => {
+			editor.tilesetBackground = {
+				"clear": "black",
+				"black": "magenta",
+				"magenta": "clear"
+			}[editor.tilesetBackground];
+			editor.viewTileset();
 		});
 
-		document.body.appendChild(tilesetName);
+		// Button to get a patch
+		let getPatchButton = document.createElement('button');
+		getPatchButton.textContent = "Extract patch";
+		getPatchButton.addEventListener('click', () => editor.getPatch());
 
-		document.body.appendChild(document.createElement('br'));
-		document.body.appendChild(nextTilesetButton);
-		document.body.appendChild(prevTilesetButton);
-		
-		document.body.appendChild(document.createElement('br'));
-		document.body.appendChild(document.createTextNode("Tile size (px): "));
-		document.body.appendChild(tilesize);
-		document.body.appendChild(document.createTextNode("Tile separation (px): "));
-		document.body.appendChild(separation);
-		
-
-		document.body.appendChild(document.createElement('br'));
-		document.body.appendChild(tilesetPreview);
-
-
+		for (let item of [
+			tilesetName,
+			document.createElement('br'),
+			prevTilesetButton,
+			nextTilesetButton,
+			backgroundButton,
+			getPatchButton,
+			document.createElement('br'),
+			document.createTextNode("Tile size (px): "),
+			tilesizeInput,
+			document.createTextNode("Tile separation (px): "),
+			separationInput,
+			document.createElement('br'),
+			tilesetCanvas,
+			document.createElement('br'),
+			document.createTextNode('Patches:')
+		])
+			document.body.appendChild(item);
 	}
 }
