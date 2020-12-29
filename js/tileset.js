@@ -67,4 +67,27 @@ class Tileset {
 
 		return canvas;
 	}
+
+	static mergeArrayOfTiles(tiles, width) {
+		if (!width)
+			width = tiles.length;
+		let height = Math.ceil(tiles.length / width);
+		if (!tiles.every(t => t.width === tiles[0].width && t.height === tiles[0].height))
+			throw `Not all tiles have the same size (expected ${tiles[0].width}x${tiles[0].height})`;
+
+		let canvas = document.createElement('canvas');
+		canvas.width = tiles[0].width * width;
+		canvas.height = tiles[0].height * height;
+		let ctx = canvas.getContext('2d');
+
+		for (let j = 0; j < height; j++) {
+			for (let i = 0; i < width; i++) {
+				if (j * width + i >= tiles.length)
+					return canvas;
+				ctx.drawImage(tiles[j * width + i], tiles[0].width * i, tiles[0].height * j);
+			}
+		}
+
+		return canvas;
+	}
 }

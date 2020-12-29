@@ -1,3 +1,5 @@
+const tilesetControls = ['i', 'k', 'j', 'l', 'Enter'];
+
 class Editor {
 	static get tilesets() {
 		return [
@@ -10,7 +12,7 @@ class Editor {
 		].map(f => "tilesets/" + f);
 	}
 
-	constructor(tilesets, canvas, tilesetName, tilesizeInput, separationInput) {
+	constructor(tilesets, canvas, tilesetName, tilesizeInput, separationInput, patchCanvas, patchWidthInput) {
 		this.tilesets = tilesets;
 		this.tilesetInd = 0;
 		this.tilesetCanvas = canvas;
@@ -18,6 +20,10 @@ class Editor {
 		this.tilesetName = tilesetName;
 		this.tilesizeInput = tilesizeInput;
 		this.separationInput = separationInput;
+		this.patchCanvas = patchCanvas;
+		this.patchWidthInput = patchWidthInput;
+		this.clickX = null;
+		this.clickY = null;
 		this.resetMark();
 		this.viewTileset();
 		this.updateFields();
@@ -25,6 +31,13 @@ class Editor {
 
 	get currentTileset() {
 		return this.tilesets[this.tilesetInd];
+	}
+
+	get currentMark() {
+		if (this.marks.length > 0)
+			return this.marks[this.marks.length - 1];
+		else
+			return null;
 	}
 
 	viewTileset() {
@@ -41,12 +54,38 @@ class Editor {
 		}
 		ctx.drawImage(tileset.image, 0, 0);
 		ctx.strokeStyle = "red";
-		ctx.strokeRect(
-			tileset.indexToPixelX(this.markX),
-			tileset.indexToPixelY(this.markY),
-			tileset.indexToPixelX(this.markX + this.markWidth) - tileset.indexToPixelX(this.markX),
-			tileset.indexToPixelY(this.markY + this.markHeight) - tileset.indexToPixelY(this.markY)
-		);
+		for (let mark of this.marks) {
+			ctx.strokeRect(
+				tileset.indexToPixelX(mark.x),
+				tileset.indexToPixelY(mark.y),
+				tileset.indexToPixelX(mark.x + mark.width) - tileset.indexToPixelX(mark.x),
+				tileset.indexToPixelY(mark.y + mark.height) - tileset.indexToPixelY(mark.y)
+			);
+		}
+
+		this.viewPatch();
+	}
+
+	viewPatch() {
+		let tiles = [];
+		for (let mark of this.marks) {
+			tiles = tiles.concat(this.currentTileset.tilesMerged(mark.x, mark.y, mark.width, mark.height));
+		}
+		try {
+			let patch = Tileset.mergeArrayOfTiles(tiles, this.patchWidthInput.value * 1);
+			this.patchCanvas.width = patch.width;
+			this.patchCanvas.height = patch.height;
+			let ctx = this.patchCanvas.getContext('2d');
+			ctx.clearRect(0, 0, this.patchCanvas.width, this.patchCanvas.height);
+			ctx.drawImage(patch, 0, 0);
+		} catch (e) {
+			console.error(e);
+			this.patchCanvas.width = 16;
+			this.patchCanvas.height = 16;
+			let ctx = this.patchCanvas.getContext('2d');
+			ctx.fillStyle = "red";
+			ctx.fillRect(0, 0, 16, 16);
+		}
 	}
 
 	changeTileset(prev) {
@@ -75,65 +114,116 @@ class Editor {
 	}
 
 	resetMark() {
-		this.markX = 0;
-		this.markY = 0;
-		this.markWidth = 1;
-		this.markHeight = 1;
+		this.marks = [{
+			x: 0,
+			y: 0,
+			width: 1,
+			height: 1
+		}];
+		this.patchWidthInput.value = 1;
+		this.patchWidthInput.max = 1;
 	}
 
 	getPatch() {
-		let patch = {
-			x: this.markX,
-			y: this.markY
-		};
-		if (this.markWidth !== 1 || this.markHeight !== 1) {
-			patch.width = this.markWidth;
-			patch.height = this.markHeight;
-		}
-		document.body.appendChild(document.createTextNode(" "));
-		document.body.appendChild(this.currentTileset.tilesMerged(patch.x, patch.y, patch['width'], patch['height']));
+		let patch = document.createElement('canvas');
+		patch.width = this.patchCanvas.width;
+		patch.height = this.patchCanvas.height;
+		patch.getContext('2d').drawImage(this.patchCanvas, 0, 0);
+		document.body.appendChild(patch);
 	}
 
 	static async setupEditor(setupButton) {
 		let tilesets = (await loadResources(this.tilesets)).map(i => new Tileset(i, 32));
 		setupButton.remove();
 		let tilesetCanvas = document.createElement('canvas');
+		let patchCanvas = document.createElement('canvas');
 
 		// Tileset parameters
 		let tilesetName = document.createTextNode("Tileset name");
 		let tilesizeInput = document.createElement('input');
-		tilesizeInput.type = "number";
+		tilesizeInput.type = 'number';
 		let separationInput = document.createElement('input');
-		separationInput.type = "number";
+		separationInput.type = 'number';
+		// Patch parameters
+		let patchWidthInput = document.createElement('input');
+		patchWidthInput.type = 'range';
+		patchWidthInput.min = 1;
+		patchWidthInput.value = 1;
 
-		let editor = new Editor(tilesets, tilesetCanvas, tilesetName, tilesizeInput, separationInput);
+		let editor = new Editor(tilesets, tilesetCanvas, tilesetName, tilesizeInput, separationInput, patchCanvas, patchWidthInput);
 		tilesizeInput.addEventListener('change', () => editor.changeTilesize(1 * tilesizeInput.value));
 		separationInput.addEventListener('change', () => editor.changeSeparation(1 * separationInput.value));
+		patchWidthInput.addEventListener('change', () => editor.viewPatch());
 
 		// Selection of tiles
 		tilesetCanvas.addEventListener('mousedown', e => {
 			let rect = tilesetCanvas.getBoundingClientRect();
-			editor.markX = e.clientX - rect.left;
-			editor.markY = e.clientY - rect.top;
+			if (!e.shiftKey)
+				editor.marks = [];
+			editor.clickX = e.clientX - rect.left;
+			editor.clickY = e.clientY - rect.top;
 		});
 		tilesetCanvas.addEventListener('mouseup', e => {
 			let rect = tilesetCanvas.getBoundingClientRect();
 			let x2 = e.clientX - rect.left;
 			let y2 = e.clientY - rect.top;
-			if (x2 < editor.markX)
-				[x2, editor.markX] = [editor.markX, x2];
-			if (y2 < editor.markY)
-				[y2, editor.markY] = [editor.markY, y2];
+			if (x2 < editor.clickX)
+				[x2, editor.clickX] = [editor.clickX, x2];
+			if (y2 < editor.clickY)
+				[y2, editor.clickY] = [editor.clickY, y2];
 			
-			editor.markX = Math.floor(editor.currentTileset.pixelToIndexX(editor.markX));
-			editor.markY = Math.floor(editor.currentTileset.pixelToIndexY(editor.markY));
+			let mark = {
+				x: Math.floor(editor.currentTileset.pixelToIndexX(editor.clickX)),
+				y: Math.floor(editor.currentTileset.pixelToIndexY(editor.clickY))
+			}
 			let x = Math.ceil(editor.currentTileset.pixelToIndexY(x2));
 			let y = Math.ceil(editor.currentTileset.pixelToIndexY(y2));
-			editor.markWidth = Math.max(1, x - editor.markX);
-			editor.markHeight = Math.max(1, y - editor.markY);
+			mark.width = Math.max(1, x - mark.x),
+			mark.height = Math.max(1, y - mark.y)
+			editor.clickX = null;
+			editor.clickY = null;
+			editor.marks.push(mark);
+			editor.patchWidthInput.max = editor.marks.length;
 			
 			editor.viewTileset();
 		});
+		document.addEventListener('keydown', e => {
+			if (editor.currentMark)
+				return true;
+			switch (e.key) {
+				case tilesetControls[3]:
+					editor.currentMark.x++;
+					break;
+				case tilesetControls[2]:
+					editor.currentMark.x--;
+					break;
+				case tilesetControls[1]:
+					editor.currentMark.y++;
+					break;
+				case tilesetControls[0]:
+					editor.currentMark.y--;
+					break;
+				case tilesetControls[3].toUpperCase():
+					editor.currentMark.width++;
+					break;
+				case tilesetControls[2].toUpperCase():
+					editor.currentMark.width = Math.max(1, editor.currentMark.width - 1);
+					break;
+				case tilesetControls[1].toUpperCase():
+					editor.currentMark.height++;
+					break;
+				case tilesetControls[0].toUpperCase():
+					editor.currentMark.height = Math.max(1, editor.currentMark.height - 1);
+					break;
+				case tilesetControls[4]:
+					editor.getPatch();
+					break;
+
+				default:
+					return true;
+			}
+			editor.viewTileset();
+		})
 
 		// Buttons to switch tileset
 		let nextTilesetButton = document.createElement('button');
@@ -167,7 +257,6 @@ class Editor {
 			prevTilesetButton,
 			nextTilesetButton,
 			backgroundButton,
-			getPatchButton,
 			document.createElement('br'),
 			document.createTextNode("Tile size (px): "),
 			tilesizeInput,
@@ -175,6 +264,13 @@ class Editor {
 			separationInput,
 			document.createElement('br'),
 			tilesetCanvas,
+			document.createElement('br'),
+			patchCanvas,
+			document.createElement('br'),
+			document.createTextNode('Patch width:'),
+			patchWidthInput,
+			document.createElement('br'),
+			getPatchButton,
 			document.createElement('br'),
 			document.createTextNode('Patches:')
 		])
