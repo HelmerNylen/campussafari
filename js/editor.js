@@ -132,9 +132,8 @@ class Editor {
 		document.body.appendChild(patch);
 	}
 
-	static async setupEditor(setupButton) {
+	static async setupEditor() {
 		let tilesets = (await loadResources(this.tilesets)).map(i => new Tileset(i, 32));
-		setupButton.remove();
 		let tilesetCanvas = document.createElement('canvas');
 		let patchCanvas = document.createElement('canvas');
 

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Level Editor - Campus Safari</title>
+	<meta charset="UTF-8">
+
+	<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700&display=swap" rel="stylesheet" />
+	<link rel="stylesheet" type="text/css" href="style/editor.css">
+
+	<script type="text/javascript" src="js/tileset.js"></script>
+	<script type="text/javascript" src="js/loader.js"></script>
+	<script type="text/javascript" src="js/level.js"></script>
+	<script type="text/javascript" src="js/editor.js"></script>
+</head>
+<body>
+	<div id="content">
+		<div id="levelParams" class="params">
+			<label for="cellsize">Level cellsize (px)</label>
+			<input id="levelCellsize" type="number" name="cellsize" value="16" />
+			<label for="levelWidth">Level width (cells)</label>
+			<input id="levelWidth" type="number" name="levelWidth" placeholder="30" />
+			<label for="levelHeight">Level height (cells)</label>
+			<input id="levelHeight" type="number" name="levelHeight" placeholder="30" />
+			<label for="levelImport">Import JSON</label>
+			<input id="levelImport" type="file" name="levelImport" accept="application/json" />
+			<button id="export" onclick="console.log('todo')">Export JSON</button>
+		</div>
+		<canvas id="level" width="768" height="512" style="border:1px solid #000;"></canvas>
+		<div id="tilesetParams" class="params terrain">
+			<h2 id="tilesetName">Tileset name</h2>
+			<button id="tilesetPrev" onclick="console.log('todo')">Previous</button>
+			<button id="tilesetNext" onclick="console.log('todo')">Next</button>
+			<label for="tilesetTilesize">Tile size (px)</label>
+			<input id="tilesetTilesize" type="number" name="tilesetTilesize" value="32" />
+			<label for="tilesetSeparation">Tile separation (px)</label>
+			<input id="tilesetSeparation" type="number" name="tilesetSeparation" value="0" />
+			<button id="tilesetChangeBackground" onclick="console.log('todo')">Change background</button>
+		</div>
+		<canvas id="tileset" class="terrain"></canvas>
+		<div id="patchParams" class="params terrain">
+			<label for="patchWidth">Tiles per row</label>
+			<input id="patchWidth" type="number" name="patchWidth" min="1" value="1" />
+			<label for="patchScale">Scale (%)</label>
+			<input id="patchScale" type="number" name="patchScale" value="100" step="any" />
+			<button id="getPatch" onclick="console.log('todo')">Add to level</button>
+		</div>
+		<canvas id="patch" class="terrain"></canvas>
+		<div id="patchesSelection" class="terrain"></div>
+	</div>
+	<script type="text/javascript">
+		window.addEventListener('load', e => {
+			Editor.setupEditor();
+			return true;
+		});
+	</script>
+</body>
+</html>
