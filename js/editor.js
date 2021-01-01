@@ -1,7 +1,9 @@
-const tilesetControls = ['i', 'k', 'j', 'l'];
+const mainControls = ['KeyW', 'KeyS', 'KeyA', 'KeyD', 'Space'];
+const tilesetControls = ['KeyI', 'KeyK', 'KeyJ', 'KeyL'];
+const patchControls = ['ArrowLeft', 'ArrowRight'];
 
 class Editor {
-	static get tilesets() {
+	static get tilesetFiles() {
 		return [
 			"exterior-32x32-town-tileset.png",
 			"lpc-city-inside.png",
@@ -12,20 +14,42 @@ class Editor {
 		].map(f => "tilesets/" + f);
 	}
 
-	constructor(tilesets, canvas, tilesetName, tilesizeInput, separationInput, patchCanvas, patchWidthInput) {
+	constructor(tilesets, tilesetCanvas, tilesetName, tilesizeInput, separationInput, patchCanvas, patchWidthInput, patchScaleInput, levelCanvas) {
 		this.tilesets = tilesets;
 		this.tilesetInd = 0;
-		this.tilesetCanvas = canvas;
+		this.tilesetCanvas = tilesetCanvas;
 		this.tilesetBackground = "clear";
 		this.tilesetName = tilesetName;
 		this.tilesizeInput = tilesizeInput;
 		this.separationInput = separationInput;
 		this.patchCanvas = patchCanvas;
 		this.patchWidthInput = patchWidthInput;
-		this.patches = [];
-		this.selectedPatch = null;
+		this.patchScaleInput = patchScaleInput;
+		this.levelCanvas = levelCanvas;
+		
+		let nullPatch = document.createElement('div');
+		nullPatch.textContent = "null";
+		nullPatch.id = "nullPatch";
+		nullPatch.classList.add("patch", "selected");
+		document.getElementById("patchesSelection").appendChild(nullPatch);
+
+		this.patches = [{
+			null: true,
+			canvas: nullPatch
+		}];
+		this.selectedPatch = 0;
+		nullPatch.addEventListener('click', _ => {
+			this.selectPatch(0);
+			return true;
+		});
+
+		this.terrain = null;
+		this.terrainCursorX = 0;
+		this.terrainCursorY = 0;
+		
 		this.clickX = null;
 		this.clickY = null;
+		
 		this.resetMark();
 		this.viewTileset();
 		this.updateFields();
@@ -40,6 +64,10 @@ class Editor {
 			return this.marks[this.marks.length - 1];
 		else
 			return null;
+	}
+
+	get currentPatch() {
+		return this.patches[this.selectedPatch];
 	}
 
 	viewTileset() {
@@ -60,8 +88,8 @@ class Editor {
 			ctx.strokeRect(
 				tileset.indexToPixelX(mark.x),
 				tileset.indexToPixelY(mark.y),
-				tileset.indexToPixelX(mark.x + mark.width) - tileset.indexToPixelX(mark.x),
-				tileset.indexToPixelY(mark.y + mark.height) - tileset.indexToPixelY(mark.y)
+				tileset.indexToPixelX(mark.x + this.markWidth) - tileset.indexToPixelX(mark.x),
+				tileset.indexToPixelY(mark.y + this.markHeight) - tileset.indexToPixelY(mark.y)
 			);
 		}
 
@@ -69,25 +97,19 @@ class Editor {
 	}
 
 	viewPatch() {
-		let tiles = [];
-		for (let mark of this.marks) {
-			tiles = tiles.concat(this.currentTileset.tilesMerged(mark.x, mark.y, mark.width, mark.height));
-		}
-		try {
-			let patch = Tileset.mergeArrayOfTiles(tiles, this.patchWidthInput.value * 1);
-			this.patchCanvas.width = patch.width;
-			this.patchCanvas.height = patch.height;
-			let ctx = this.patchCanvas.getContext('2d');
-			ctx.clearRect(0, 0, this.patchCanvas.width, this.patchCanvas.height);
-			ctx.drawImage(patch, 0, 0);
-		} catch (e) {
-			console.error(e);
-			this.patchCanvas.width = 16;
-			this.patchCanvas.height = 16;
-			let ctx = this.patchCanvas.getContext('2d');
-			ctx.fillStyle = "red";
-			ctx.fillRect(0, 0, 16, 16);
-		}
+		let canvas = Level.makePatch(this.currentTileset, {
+			x: this.marks.map(m => m.x),
+			y: this.marks.map(m => m.y),
+			width: this.markWidth,
+			height: this.markHeight,
+			rowLength: this.patchWidthInput.value * 1,
+			scale: this.patchScaleInput.value * 1
+		});
+		this.patchCanvas.width = canvas.width;
+		this.patchCanvas.height = canvas.height;
+		let ctx = this.patchCanvas.getContext('2d');
+		ctx.clearRect(0, 0, this.patchCanvas.width, this.patchCanvas.height);
+		ctx.drawImage(canvas, 0, 0);
 	}
 
 	changeTileset(prev) {
@@ -101,16 +123,18 @@ class Editor {
 		this.currentTileset.tilesizeX = value;
 		this.currentTileset.tilesizeY = value;
 		this.viewTileset();
+		this.updatePatches();
 	}
 
 	changeSeparation(value) {
 		this.currentTileset.sepX = value;
 		this.currentTileset.sepY = value;
 		this.viewTileset();
+		this.updatePatches();
 	}
 
 	updateFields() {
-		this.tilesetName.textContent = Editor.tilesets[this.tilesetInd];
+		this.tilesetName.textContent = Editor.tilesetFiles[this.tilesetInd];
 		this.tilesizeInput.value = this.currentTileset.tilesizeX;
 		this.separationInput.value = this.currentTileset.sepX;
 	}
@@ -118,37 +142,206 @@ class Editor {
 	resetMark() {
 		this.marks = [{
 			x: 0,
-			y: 0,
-			width: 1,
-			height: 1
+			y: 0
 		}];
+		this.markWidth = 1;
+		this.markHeight = 1;
 		this.patchWidthInput.value = 1;
 		this.patchWidthInput.max = 1;
 	}
 
+	updatePatches() {
+		let anyChanged = false;
+		this.patches.forEach(p => {
+			if (p.tileset === this.currentTileset) {
+				let c = Level.makePatch(p.tileset, p);
+				p.canvas.width = c.width;
+				p.canvas.height = c.height;
+				let ctx = p.canvas.getContext('2d');
+				ctx.clearRect(0, 0, p.canvas.width, p.canvas.height);
+				ctx.drawImage(c, 0, 0);
+				anyChanged = true;
+			}
+		});
+		if (anyChanged)
+			this.drawTerrain();
+	}
+
 	getPatch() {
-		let patch = document.createElement('canvas');
-		patch.width = this.patchCanvas.width;
-		patch.height = this.patchCanvas.height;
-		patch.getContext('2d').drawImage(this.patchCanvas, 0, 0);
-		patch.classList.add("patch");
-		document.getElementById("patchesSelection").appendChild(patch);
+		let patch = {
+			tileset: this.currentTileset,
+			x: this.marks.map(m => m.x),
+			y: this.marks.map(m => m.y),
+			width: this.markWidth,
+			height: this.markHeight,
+			rowLength: this.patchWidthInput.value * 1,
+			scale: this.patchScaleInput.value * 1
+		};
+		let canvas = Level.makePatch(patch.tileset, patch);
+		canvas.classList.add("patch");
+		document.getElementById("patchesSelection").appendChild(canvas);
+		patch.canvas = canvas;
+
 		this.patches.push(patch);
-		if (this.selectedPatch === null)
-			this.selectedPatch = 0;
-		this.patches[this.selectedPatch].classList.add("selected");
-		patch.addEventListener('click', _ => {
-			this.patches[this.selectedPatch].classList.remove("selected");
-			this.selectedPatch = this.patches.findIndex(p => p === patch);
-			this.patches[this.selectedPatch].classList.add("selected");
+		patch.canvas.addEventListener('click', _ => {
+			this.selectPatch(this.patches.findIndex(p => p === patch));
 			return true;
 		});
 	}
 
+	selectPatch(patchInd) {
+		this.currentPatch.canvas.classList.remove("selected");
+		this.selectedPatch = patchInd;
+		this.currentPatch.canvas.classList.add("selected");
+	}
+
+	deletePatch() {
+		if (this.selectedPatch === 0) {
+			console.log("Cannot remove the null patch");
+			return;
+		}
+		const unused = this.terrain === null || !this.terrain.data.some(
+			d => d instanceof Array ? d.some(dd => dd === this.selectedPatch) : d === this.selectedPatch
+		);
+		if (unused || confirm("This patch is used in the current terrain. Do you still want to remove it?")) {
+			if (this.terrain !== null) {
+				// Gå igenom terrängdatan och ersätt den borttagna patchen med nullpatchen
+				// I fallet med flera patches på varandra raderas de översta helt om de är av typen som nu tas bort
+				// Korrigera också indexet på övriga patches
+				for (let i = 0; i < this.terrain.data.length; i++) {
+					if (this.terrain.data[i] instanceof Array) {
+						for (let j = this.terrain.data[i].length - 1; j >= 0; j++) {
+							if (this.terrain.data[i][j] === this.selectedPatch) {
+								if (j === this.terrain.data[i][j].length - 1)
+									this.terrain.data[i].splice(j, 1);
+								else
+									this.terrain.data[i][j] = 0;
+							} else if (this.terrain.data[i][j] > this.selectedPatch)
+								this.terrain.data[i][j]--;
+						}
+						if (this.terrain.data[i].length === 0)
+							this.terrain.data[i] = 0;
+						else if (this.terrain.data[i].length === 1)
+							this.terrain.data[i] = this.terrain.data[i][0];
+					} else {
+						if (this.terrain.data[i] > this.selectedPatch)
+							this.terrain.data[i]--;
+						else if (this.terrain.data[i] === this.selectedPatch)
+							this.terrain.data[i] = 0;
+					}
+				}
+			}
+			this.currentPatch.canvas.remove();
+			this.patches.splice(this.selectedPatch, 1);
+			this.selectedPatch = this.selectedPatch - 1;
+			this.currentPatch.canvas.classList.add("selected");
+			if (!unused)
+				this.drawTerrain();
+		}
+	}
+
+	updateTerrainSize(cellsize, width, height, nocopy) {
+		if (cellsize <= 0 || width <= 0 || height <= 0) {
+			alert("cellsize, width and height must all be > 0");
+			return;
+		}
+
+		let oldTerrain = nocopy ? null : this.terrain;
+		this.terrain = {
+			cellsize: cellsize,
+			width: width,
+			height: height,
+			data: new Array(width * height).fill(0)
+		};
+		if (oldTerrain !== null) {
+			for (let j = 0; j < oldTerrain.height && j < this.terrain.height; j++) {
+				for (let i = 0; i < oldTerrain.width && i < this.terrain.width; i++) {
+					if (oldTerrain.data[j * oldTerrain.width + i] !== 0)
+						this.terrain.data[j * this.terrain.width + i] = oldTerrain.data[j * oldTerrain.width + i];
+				}
+			}
+		}
+		this.terrainCursorX = Math.min(this.terrain.width - 1, this.terrainCursorX);
+		this.terrainCursorY = Math.min(this.terrain.height - 1, this.terrainCursorY);
+		this.drawTerrain();
+	}
+
+	drawTerrain() {
+		let t = {
+			cellsize: this.terrain.cellsize,
+			width: this.terrain.width,
+			height: this.terrain.height,
+			data: this.terrain.data,
+			patches: this.patches.slice(1).map(p => ({
+				tileset: this.tilesets.findIndex(t => t === p.tileset),
+				x: p.x,
+				y: p.y,
+				width: p.width,
+				height: p.height,
+				rowLength: p.rowLength,
+				scale: p.scale
+			}))
+		};
+		let level = Level.drawTerrain(this.tilesets, t);
+		let ctx = this.levelCanvas.getContext('2d');
+		ctx.clearRect(0, 0, this.levelCanvas.width, this.levelCanvas.height);
+		ctx.drawImage(level, 0, 0);
+	}
+
+	setTerrainPatch(add) {
+		if (this.terrain === null) {
+			alert("Create a terrain first");
+			return;
+		}
+		const i = this.terrainCursorY * this.terrain.width + this.terrainCursorX;
+		if (add) {
+			if (this.terrain.data[i] instanceof Array)
+				this.terrain.data[i].push(this.selectedPatch);
+			else
+				this.terrain.data[i] = [this.terrain.data[i], this.selectedPatch];
+		} else
+			this.terrain.data[i] = this.selectedPatch;
+	}
+
+	exportLevel(compressionLevel) {
+		let obj = {
+			tilesets: this.tilesets.map((ts, i) => ({
+				file: Editor.tilesetFiles[i],
+				tilesize: ts.tilesizeX,
+				separation: ts.sepX
+			})),
+			terrain: {
+				cellsize: this.terrain.cellsize,
+				width: this.terrain.width,
+				height: this.terrain.height,
+				patches: this.patches.slice(1).map(p => ({
+					tileset: this.tilesets.findIndex(t => t === p.tileset),
+					x: p.x,
+					y: p.y,
+					width: p.width,
+					height: p.height,
+					rowLength: p.rowLength,
+					scale: p.scale
+				})),
+				data: this.terrain.data.filter(_ => true)
+			}
+		};
+
+		if (compressionLevel > 0)
+			console.warn("Compression not yet supported");
+		
+		let data = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(obj));
+		let a = document.createElement('a');
+		a.href = data;
+		a.download = "level.json";
+		a.click();
+	}
+
 	static async setupEditor() {
-		let tilesets = (await loadResources(this.tilesets)).map(i => new Tileset(i, 32));
+		let tilesets = (await loadResources(Editor.tilesetFiles)).map(i => new Tileset(i, 32));
 		let tilesetCanvas = document.getElementById("tileset");
 		let patchCanvas = document.getElementById("patch");
+		let levelCanvas = document.getElementById("level");
 
 		// Tileset parameters
 		let tilesetName = document.getElementById("tilesetName");
@@ -156,78 +349,160 @@ class Editor {
 		let separationInput = document.getElementById("tilesetSeparation");
 		// Patch parameters
 		let patchWidthInput = document.getElementById("patchWidth");
+		let patchScaleInput = document.getElementById("patchScale");
+		// Level parameters
+		let levelCellsizeInput = document.getElementById("levelCellsize");
+		let levelWidthInput = document.getElementById("levelWidth");
+		let levelHeightInput = document.getElementById("levelHeight");
 
-		let editor = new Editor(tilesets, tilesetCanvas, tilesetName, tilesizeInput, separationInput, patchCanvas, patchWidthInput);
+		let editor = new Editor(tilesets, tilesetCanvas, tilesetName, tilesizeInput, separationInput, patchCanvas, patchWidthInput, patchScaleInput, levelCanvas);
 		tilesizeInput.addEventListener('change', () => editor.changeTilesize(1 * tilesizeInput.value));
 		separationInput.addEventListener('change', () => editor.changeSeparation(1 * separationInput.value));
 		patchWidthInput.addEventListener('change', () => editor.viewPatch());
+		patchScaleInput.addEventListener('change', () => editor.viewPatch());
 
 		// Selection of tiles
 		tilesetCanvas.addEventListener('mousedown', e => {
 			let rect = tilesetCanvas.getBoundingClientRect();
-			if (!e.shiftKey)
-				editor.marks = [];
 			editor.clickX = e.clientX - rect.left;
 			editor.clickY = e.clientY - rect.top;
+			if (e.shiftKey)
+				tilesetCanvas.dispatchEvent(new MouseEvent('mouseup'));
+			else
+				editor.marks = [];
 		});
 		tilesetCanvas.addEventListener('mouseup', e => {
-			let rect = tilesetCanvas.getBoundingClientRect();
-			let x2 = e.clientX - rect.left;
-			let y2 = e.clientY - rect.top;
-			if (x2 < editor.clickX)
-				[x2, editor.clickX] = [editor.clickX, x2];
-			if (y2 < editor.clickY)
-				[y2, editor.clickY] = [editor.clickY, y2];
+			if (editor.clickX === null)
+				return;
 			
+			let x2, y2;
+			if (!editor.currentMark) {
+				let rect = tilesetCanvas.getBoundingClientRect();
+				x2 = e.clientX - rect.left;
+				y2 = e.clientY - rect.top;
+				if (x2 < editor.clickX)
+					[x2, editor.clickX] = [editor.clickX, x2];
+				if (y2 < editor.clickY)
+					[y2, editor.clickY] = [editor.clickY, y2];
+			}
 			let mark = {
 				x: Math.floor(editor.currentTileset.pixelToIndexX(editor.clickX)),
 				y: Math.floor(editor.currentTileset.pixelToIndexY(editor.clickY))
+			};
+			if (!editor.currentMark) {
+				let x = Math.ceil(editor.currentTileset.pixelToIndexY(x2));
+				let y = Math.ceil(editor.currentTileset.pixelToIndexY(y2));
+				editor.markWidth = Math.max(1, x - mark.x);
+				editor.markHeight = Math.max(1, y - mark.y);
 			}
-			let x = Math.ceil(editor.currentTileset.pixelToIndexY(x2));
-			let y = Math.ceil(editor.currentTileset.pixelToIndexY(y2));
-			mark.width = Math.max(1, x - mark.x),
-			mark.height = Math.max(1, y - mark.y)
+			editor.marks.push(mark);
 			editor.clickX = null;
 			editor.clickY = null;
-			editor.marks.push(mark);
-			editor.patchWidthInput.max = editor.marks.length;
+			patchWidthInput.max = editor.marks.length;
+			patchWidthInput.value = Math.min(patchWidthInput.max, patchWidthInput.value);
 			
 			editor.viewTileset();
 		});
 		document.body.addEventListener('keydown', e => {
-			if (editor.marks.length > 1 || editor.clickX !== null)
+			if (editor.clickX !== null)
 				return true;
-			switch (e.key) {
-				case tilesetControls[3]:
-					editor.currentMark.x++;
-					break;
-				case tilesetControls[2]:
-					editor.currentMark.x--;
-					break;
-				case tilesetControls[1]:
-					editor.currentMark.y++;
-					break;
-				case tilesetControls[0]:
-					editor.currentMark.y--;
-					break;
-				case tilesetControls[3].toUpperCase():
-					editor.currentMark.width++;
-					break;
-				case tilesetControls[2].toUpperCase():
-					editor.currentMark.width = Math.max(1, editor.currentMark.width - 1);
-					break;
-				case tilesetControls[1].toUpperCase():
-					editor.currentMark.height++;
-					break;
-				case tilesetControls[0].toUpperCase():
-					editor.currentMark.height = Math.max(1, editor.currentMark.height - 1);
-					break;
+			if (e.shiftKey) {
+				switch (e.code) {
+					case tilesetControls[0]:
+						editor.markHeight = Math.max(1, editor.markHeight - 1);
+						break;
+					case tilesetControls[1]:
+						editor.markHeight++;
+						break;
+					case tilesetControls[2]:
+						editor.markWidth = Math.max(1, editor.markWidth - 1);
+						break;
+					case tilesetControls[3]:
+						editor.markWidth++;
+						break;
+					default:
+						return true;
+				}
+			} else {
+				switch (e.code) {
+					case tilesetControls[0]:
+						editor.currentMark.y--;
+						break;
+					case tilesetControls[1]:
+						editor.currentMark.y++;
+						break;
+					case tilesetControls[2]:
+						editor.currentMark.x--;
+						break;
+					case tilesetControls[3]:
+						editor.currentMark.x++;
+						break;
 
+					default:
+						return true;
+				}
+			}
+			editor.viewTileset();
+			e.preventDefault();
+		});
+		document.body.addEventListener('keydown', e => {
+			let patchInd = null;
+			switch (e.code) {
+				case patchControls[0]:
+					patchInd = Math.max(0, editor.selectedPatch - 1);
+					break;
+				case patchControls[1]:
+					patchInd = Math.min(editor.patches.length - 1, editor.selectedPatch + 1);
+					break;
 				default:
 					return true;
 			}
-			editor.viewTileset();
-		})
+			editor.selectPatch(patchInd);
+			e.preventDefault();
+		});
+		document.body.addEventListener('keydown', e => {
+			if (editor.terrain === null)
+				return true;
+			if (e.shiftKey) {
+				switch(e.code) {
+					case mainControls[0]:
+					case mainControls[1]:
+					case mainControls[2]:
+					case mainControls[3]:
+					case mainControls[4]:
+						alert("todo");
+						break;
+					default:
+						return true;
+				}
+			} else {
+				switch (e.code) {
+					case mainControls[0]:
+						editor.terrainCursorY = Math.max(0, editor.terrainCursorY - 1);
+						console.log(editor.terrainCursorX, editor.terrainCursorY);
+						break;
+					case mainControls[1]:
+						editor.terrainCursorY = Math.min(editor.terrain.height - 1, editor.terrainCursorY + 1);
+						console.log(editor.terrainCursorX, editor.terrainCursorY);
+						break;
+					case mainControls[2]:
+						editor.terrainCursorX = Math.max(0, editor.terrainCursorX - 1);
+						console.log(editor.terrainCursorX, editor.terrainCursorY);
+						break;
+					case mainControls[3]:
+						editor.terrainCursorX = Math.min(editor.terrain.width - 1, editor.terrainCursorX + 1);
+						console.log(editor.terrainCursorX, editor.terrainCursorY);
+						break;
+					case mainControls[4]:
+						editor.setTerrainPatch();
+						editor.drawTerrain();
+						break;
+					default:
+						return true;
+				}
+			}
+			e.preventDefault();
+		});
 
 		// Buttons to switch tileset
 		let nextTilesetButton = document.getElementById("tilesetNext");
@@ -254,5 +529,24 @@ class Editor {
 		// Button to get a patch
 		let getPatchButton = document.getElementById("getPatch");
 		getPatchButton.addEventListener('click', () => editor.getPatch());
+		// Button to delete a patch
+		let deletePatch = document.getElementById("deletePatch");
+		deletePatch.addEventListener('click', () => editor.deletePatch());
+
+		// Button to update the size of the level
+		let levelCreateButton = document.getElementById("levelCreate");
+		levelCreateButton.addEventListener('click', () => {
+			editor.updateTerrainSize(
+				levelCellsizeInput.value * 1,
+				levelWidthInput.value * 1,
+				levelHeightInput.value * 1
+			);
+		});
+
+		// Button to download a level
+		let levelExportButton = document.getElementById("levelExport");
+		levelExportButton.addEventListener('click', () => {
+			let json = editor.exportLevel();
+		});
 	}
 }

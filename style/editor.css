@@ -24,8 +24,17 @@ label {
 #tileset, #level {
 	margin-right: 0.5em;
 }
+#patchesSelection {
+	margin-top: 12px;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-start;
+	min-width: 400px;
+	height: 512px;
+	overflow-y: auto;
+}
 .patch {
-	margin: 0.1em;
+	margin: 2px;
 	padding: 2px;
 }
 .patch:hover:not(.selected) {
@@ -35,4 +44,19 @@ label {
 .patch.selected {
 	border: 2px solid salmon;
 	padding: 0;
+}
+#nullPatch {
+	font-family: monospace;
+	font-size: 10px;
+	width: 32px;
+	padding: 12px 2px;
+	user-select: none;
+	text-align: center;
+	display: inline-block;
+}
+#nullPatch:hover:not(.selected) {
+	padding: 11px 1px;
+}
+#nullPatch.selected {
+	padding: 10px 0;
 }

@@ -18,7 +18,7 @@
 			<div>
 				<div id="levelParams" class="params">
 					<div>
-						<label for="cellsize">Level cellsize (px)</label>
+						<label for="levelCellsize">Level cellsize (px)</label>
 						<input id="levelCellsize" type="number" value="16" />
 					</div>
 					<div>
@@ -31,7 +31,7 @@
 					</div>
 					<div>
 						<label for="levelCreate">Update level size</label>
-						<button id="levelCreate" onclick="alert('todo')">Update</button>
+						<button id="levelCreate">Update</button>
 					</div>
 					<div>
 						<label for="levelImport">Import JSON</label>
@@ -39,7 +39,7 @@
 					</div>
 					<div>
 						<label for="levelExport">Export JSON</label>
-						<button id="levelExport" onclick="alert('todo')">Save</button>
+						<button id="levelExport">Save</button>
 					</div>
 					<div>
 						<label for="levelEditMode">Edit mode</label>
@@ -52,7 +52,8 @@
 			</div>
 			<div class="terrain">
 				<h3>Extracted patches</h3>
-				<div id="patchesSelection" class="terrain"></div>
+				<button id="deletePatch">Delete current patch</button>
+				<div id="patchesSelection"></div>
 			</div>
 		</div>
 		<div id="lower" class="row">
