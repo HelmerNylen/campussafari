@@ -1,4 +1,4 @@
-const tilesetControls = ['i', 'k', 'j', 'l', 'Enter'];
+const tilesetControls = ['i', 'k', 'j', 'l'];
 
 class Editor {
 	static get tilesets() {
@@ -22,6 +22,8 @@ class Editor {
 		this.separationInput = separationInput;
 		this.patchCanvas = patchCanvas;
 		this.patchWidthInput = patchWidthInput;
+		this.patches = [];
+		this.selectedPatch = null;
 		this.clickX = null;
 		this.clickY = null;
 		this.resetMark();
@@ -129,25 +131,31 @@ class Editor {
 		patch.width = this.patchCanvas.width;
 		patch.height = this.patchCanvas.height;
 		patch.getContext('2d').drawImage(this.patchCanvas, 0, 0);
-		document.body.appendChild(patch);
+		patch.classList.add("patch");
+		document.getElementById("patchesSelection").appendChild(patch);
+		this.patches.push(patch);
+		if (this.selectedPatch === null)
+			this.selectedPatch = 0;
+		this.patches[this.selectedPatch].classList.add("selected");
+		patch.addEventListener('click', _ => {
+			this.patches[this.selectedPatch].classList.remove("selected");
+			this.selectedPatch = this.patches.findIndex(p => p === patch);
+			this.patches[this.selectedPatch].classList.add("selected");
+			return true;
+		});
 	}
 
 	static async setupEditor() {
 		let tilesets = (await loadResources(this.tilesets)).map(i => new Tileset(i, 32));
-		let tilesetCanvas = document.createElement('canvas');
-		let patchCanvas = document.createElement('canvas');
+		let tilesetCanvas = document.getElementById("tileset");
+		let patchCanvas = document.getElementById("patch");
 
 		// Tileset parameters
-		let tilesetName = document.createTextNode("Tileset name");
-		let tilesizeInput = document.createElement('input');
-		tilesizeInput.type = 'number';
-		let separationInput = document.createElement('input');
-		separationInput.type = 'number';
+		let tilesetName = document.getElementById("tilesetName");
+		let tilesizeInput = document.getElementById("tilesetTilesize");
+		let separationInput = document.getElementById("tilesetSeparation");
 		// Patch parameters
-		let patchWidthInput = document.createElement('input');
-		patchWidthInput.type = 'range';
-		patchWidthInput.min = 1;
-		patchWidthInput.value = 1;
+		let patchWidthInput = document.getElementById("patchWidth");
 
 		let editor = new Editor(tilesets, tilesetCanvas, tilesetName, tilesizeInput, separationInput, patchCanvas, patchWidthInput);
 		tilesizeInput.addEventListener('change', () => editor.changeTilesize(1 * tilesizeInput.value));
@@ -186,8 +194,8 @@ class Editor {
 			
 			editor.viewTileset();
 		});
-		document.addEventListener('keydown', e => {
-			if (editor.currentMark)
+		document.body.addEventListener('keydown', e => {
+			if (editor.marks.length > 1 || editor.clickX !== null)
 				return true;
 			switch (e.key) {
 				case tilesetControls[3]:
@@ -214,9 +222,6 @@ class Editor {
 				case tilesetControls[0].toUpperCase():
 					editor.currentMark.height = Math.max(1, editor.currentMark.height - 1);
 					break;
-				case tilesetControls[4]:
-					editor.getPatch();
-					break;
 
 				default:
 					return true;
@@ -225,54 +230,29 @@ class Editor {
 		})
 
 		// Buttons to switch tileset
-		let nextTilesetButton = document.createElement('button');
-		nextTilesetButton.textContent = "Next";
+		let nextTilesetButton = document.getElementById("tilesetNext");
 		nextTilesetButton.addEventListener('click', () => editor.changeTileset(false));
 
-		let prevTilesetButton = document.createElement('button');
-		prevTilesetButton.textContent = "Previous";
+		let prevTilesetButton = document.getElementById("tilesetPrev");
 		prevTilesetButton.addEventListener('click', () => editor.changeTileset(true));
 
 		// Button to change tileset background
-		let backgroundButton = document.createElement('button');
-		backgroundButton.textContent = "Change background";
+		const nextCol = {
+			"clear": "black",
+			"black": "magenta",
+			"magenta": "clear"
+		};
+		const capFirst = s => s[0].toUpperCase() + s.slice(1);
+		let backgroundButton = document.getElementById("tilesetChangeBackground");
+		backgroundButton.textContent = capFirst(nextCol[editor.tilesetBackground]);
 		backgroundButton.addEventListener('click', () => {
-			editor.tilesetBackground = {
-				"clear": "black",
-				"black": "magenta",
-				"magenta": "clear"
-			}[editor.tilesetBackground];
+			editor.tilesetBackground = nextCol[editor.tilesetBackground];
+			backgroundButton.textContent = capFirst(nextCol[editor.tilesetBackground]);
 			editor.viewTileset();
 		});
 
 		// Button to get a patch
-		let getPatchButton = document.createElement('button');
-		getPatchButton.textContent = "Extract patch";
+		let getPatchButton = document.getElementById("getPatch");
 		getPatchButton.addEventListener('click', () => editor.getPatch());
-
-		for (let item of [
-			tilesetName,
-			document.createElement('br'),
-			prevTilesetButton,
-			nextTilesetButton,
-			backgroundButton,
-			document.createElement('br'),
-			document.createTextNode("Tile size (px): "),
-			tilesizeInput,
-			document.createTextNode("Tile separation (px): "),
-			separationInput,
-			document.createElement('br'),
-			tilesetCanvas,
-			document.createElement('br'),
-			patchCanvas,
-			document.createElement('br'),
-			document.createTextNode('Patch width:'),
-			patchWidthInput,
-			document.createElement('br'),
-			getPatchButton,
-			document.createElement('br'),
-			document.createTextNode('Patches:')
-		])
-			document.body.appendChild(item);
 	}
 }

@@ -1,3 +1,38 @@
 body {
 	font-family: Nunito, Arial, Helvetica, sans-serif;
 }
+
+#levelParams {
+	width: 768px;
+}
+.params {
+	display: flex;
+	flex-wrap: wrap;
+}
+.params > div {
+	margin: 0.5em 0.5em;
+}
+.params > div > * {
+	display: block;
+}
+.row {
+	display: flex;
+}
+label {
+	font-size: 12px;
+}
+#tileset, #level {
+	margin-right: 0.5em;
+}
+.patch {
+	margin: 0.1em;
+	padding: 2px;
+}
+.patch:hover:not(.selected) {
+	border: 1px solid salmon;
+	padding: 1px;
+}
+.patch.selected {
+	border: 2px solid salmon;
+	padding: 0;
+}
