@@ -23,7 +23,7 @@
 	<script type="text/javascript">
 		window.onload = () => {
 			loadResources("levels/test.json", JSON).then(items => {
-				Level.drawTerrain(items[0]).then(canvas => {
+				Level.createTerrain(items[0]).then(canvas => {
 					document.getElementById("gameboard").getContext('2d').drawImage(canvas, 0, 0);
 				});
 			}, reason => {

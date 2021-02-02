@@ -5,8 +5,13 @@ class Tileset {
 		this.tilesizeY = tilesizeY || this.tilesizeX;
 		this.sepX = sepX || 0;
 		this.sepY = sepY || this.sepX;
-		this.width = Math.floor((this.image.width + this.sepX) / (this.tilesizeX + this.sepX));
-		this.height = Math.floor((this.image.height + this.sepY) / (this.tilesizeY + this.sepY));
+	}
+
+	get width() {
+		return Math.floor((this.image.width + this.sepX) / (this.tilesizeX + this.sepX));
+	}
+	get height() {
+		return Math.floor((this.image.height + this.sepY) / (this.tilesizeY + this.sepY));
 	}
 
 	pixelToIndexX(x) {

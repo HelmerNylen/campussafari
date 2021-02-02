@@ -46,6 +46,9 @@ class Editor {
 		this.terrain = null;
 		this.terrainCursorX = 0;
 		this.terrainCursorY = 0;
+		this.terrainOffsetX = 0;
+		this.terrainOffsetY = 0;
+		this.terrainRendered = null;
 		
 		this.clickX = null;
 		this.clickY = null;
@@ -163,12 +166,14 @@ class Editor {
 				anyChanged = true;
 			}
 		});
-		if (anyChanged)
+		if (anyChanged) {
+			this.updateTerrainImage();
 			this.drawTerrain();
+		}
 	}
 
-	getPatch() {
-		let patch = {
+	getPatch(_patch) {
+		let patch = _patch || {
 			tileset: this.currentTileset,
 			x: this.marks.map(m => m.x),
 			y: this.marks.map(m => m.y),
@@ -235,8 +240,10 @@ class Editor {
 			this.patches.splice(this.selectedPatch, 1);
 			this.selectedPatch = this.selectedPatch - 1;
 			this.currentPatch.canvas.classList.add("selected");
-			if (!unused)
+			if (!unused) {
+				this.updateTerrainImage();
 				this.drawTerrain();
+			}
 		}
 	}
 
@@ -263,10 +270,11 @@ class Editor {
 		}
 		this.terrainCursorX = Math.min(this.terrain.width - 1, this.terrainCursorX);
 		this.terrainCursorY = Math.min(this.terrain.height - 1, this.terrainCursorY);
+		this.updateTerrainImage();
 		this.drawTerrain();
 	}
 
-	drawTerrain() {
+	updateTerrainImage() {
 		let t = {
 			cellsize: this.terrain.cellsize,
 			width: this.terrain.width,
@@ -282,10 +290,24 @@ class Editor {
 				scale: p.scale
 			}))
 		};
-		let level = Level.drawTerrain(this.tilesets, t);
+		this.terrainRendered = Level.drawTerrain(this.tilesets, t);
+	}
+
+	drawTerrain() {
+		if (this.terrainRendered === null)
+			this.updateTerrainImage();
+		
 		let ctx = this.levelCanvas.getContext('2d');
 		ctx.clearRect(0, 0, this.levelCanvas.width, this.levelCanvas.height);
-		ctx.drawImage(level, 0, 0);
+		const cs = this.terrain.cellsize;
+		ctx.drawImage(this.terrainRendered, this.terrainOffsetX * cs, this.terrainOffsetY * cs);
+		ctx.strokeStyle = 'red';
+		ctx.strokeRect(
+			(this.terrainOffsetX + this.terrainCursorX) * cs,
+			(this.terrainOffsetY + this.terrainCursorY) * cs,
+			cs + 1,
+			cs + 1
+		);
 	}
 
 	setTerrainPatch(add) {
@@ -301,6 +323,53 @@ class Editor {
 				this.terrain.data[i] = [this.terrain.data[i], this.selectedPatch];
 		} else
 			this.terrain.data[i] = this.selectedPatch;
+	}
+
+	hover(e) {
+		if (!this.terrain)
+			return;
+		let rect = this.levelCanvas.getBoundingClientRect();
+		let x = Math.floor((e.clientX - rect.left) / this.terrain.cellsize);
+		let y = Math.floor((e.clientY - rect.top) / this.terrain.cellsize);
+
+		if (x < 0 || y < 0 || x >= this.terrain.width || y >= this.terrain.height)
+			return;
+
+		if (x !== this.terrainCursorX || y !== this.terrainCursorY) {
+			this.terrainCursorX = x;
+			this.terrainCursorY = y;
+			this.drawTerrain();
+		}
+	}
+
+	importLevel(file) {
+		const reader = new FileReader();
+		reader.onload = () => {
+			let json = JSON.parse(reader.result);
+			this.updateTerrainSize(
+				json.terrain.cellsize,
+				json.terrain.width,
+				json.terrain.height,
+				true
+			);
+			// Funkar inte om man har flera tilesets från samma url men så illa hoppas jag inte det blir
+			json.tilesets.forEach(ts => {
+				const tileset = this.tilesets.find(_ts => _ts.image.src.endsWith(ts.file));
+				tileset.tilesizeX = ts["tilesizeX"] || ts["tilesize"];
+				tileset.tilesizeY = ts["tilesizeY"] || ts["tilesize"];
+				tileset.sepX = ts['separationX'] || ts['separation'] || 0;
+				tileset.sepY = ts['separationY'] || ts['separation'] || 0;
+			});
+			this.selectPatch(0);
+			json.terrain.patches.forEach(p => {
+				p.tileset = this.tilesets.find(_ts => _ts.image.src.endsWith(json.tilesets[p.tileset].file));
+				this.getPatch(p);
+			});
+			this.terrain.data = json.terrain.data;
+			this.updateTerrainImage();
+			this.drawTerrain();
+		};
+		reader.readAsText(file, "UTF-8");
 	}
 
 	exportLevel(compressionLevel) {
@@ -360,6 +429,15 @@ class Editor {
 		separationInput.addEventListener('change', () => editor.changeSeparation(1 * separationInput.value));
 		patchWidthInput.addEventListener('change', () => editor.viewPatch());
 		patchScaleInput.addEventListener('change', () => editor.viewPatch());
+
+		levelCanvas.addEventListener('mousemove', e => editor.hover(e));
+		levelCanvas.addEventListener('mousedown', e => {
+			editor.setTerrainPatch(e.shiftKey);
+			editor.updateTerrainImage();
+			editor.drawTerrain();
+			e.stopPropagation();
+			e.preventDefault();
+		});
 
 		// Selection of tiles
 		tilesetCanvas.addEventListener('mousedown', e => {
@@ -466,11 +544,20 @@ class Editor {
 			if (e.shiftKey) {
 				switch(e.code) {
 					case mainControls[0]:
+						editor.terrainOffsetY--;
+						break;
 					case mainControls[1]:
+						editor.terrainOffsetY++;
+						break;
 					case mainControls[2]:
+						editor.terrainOffsetX--;
+						break;
 					case mainControls[3]:
+						editor.terrainOffsetX++;
+						break;
 					case mainControls[4]:
-						alert("todo");
+						editor.setTerrainPatch(true);
+						editor.updateTerrainImage();
 						break;
 					default:
 						return true;
@@ -479,28 +566,25 @@ class Editor {
 				switch (e.code) {
 					case mainControls[0]:
 						editor.terrainCursorY = Math.max(0, editor.terrainCursorY - 1);
-						console.log(editor.terrainCursorX, editor.terrainCursorY);
 						break;
 					case mainControls[1]:
 						editor.terrainCursorY = Math.min(editor.terrain.height - 1, editor.terrainCursorY + 1);
-						console.log(editor.terrainCursorX, editor.terrainCursorY);
 						break;
 					case mainControls[2]:
 						editor.terrainCursorX = Math.max(0, editor.terrainCursorX - 1);
-						console.log(editor.terrainCursorX, editor.terrainCursorY);
 						break;
 					case mainControls[3]:
 						editor.terrainCursorX = Math.min(editor.terrain.width - 1, editor.terrainCursorX + 1);
-						console.log(editor.terrainCursorX, editor.terrainCursorY);
 						break;
 					case mainControls[4]:
 						editor.setTerrainPatch();
-						editor.drawTerrain();
+						editor.updateTerrainImage();
 						break;
 					default:
 						return true;
 				}
 			}
+			editor.drawTerrain();
 			e.preventDefault();
 		});
 
@@ -543,10 +627,14 @@ class Editor {
 			);
 		});
 
+		// Level file input
+		let levelImportField = document.getElementById("levelImport");
+		levelImportField.addEventListener('change', () => editor.importLevel(levelImportField.files[0]));
+
 		// Button to download a level
 		let levelExportButton = document.getElementById("levelExport");
-		levelExportButton.addEventListener('click', () => {
-			let json = editor.exportLevel();
-		});
+		levelExportButton.addEventListener('click', () => editor.exportLevel());
+
+		window.editor = editor;
 	}
 }
