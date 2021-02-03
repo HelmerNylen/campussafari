@@ -29,17 +29,22 @@ class Level {
 			return patch;
 	}
 
-	static async createTerrain(json) {
+	static async getTilesets(json) {
 		const images = await loadResources(json.tilesets.map(ts => "tilesets/" + ts.file));
 
-		let tilesets = json.tilesets.map((ts, i) => new Tileset(
+		const tilesets = json.tilesets.map((ts, i) => new Tileset(
 			images[i],
 			ts['tilesizeX'] || ts['tilesize'],
 			ts['separationX'] || ts['separation'],
 			ts['tilesizeY'] || ts['tilesize'],
 			ts['separationY'] || ts['separation']
 		));
-		
+
+		return tilesets;
+	}
+
+	static async createTerrain(json) {
+		const tilesets = await this.getTilesets(json);
 		return this.drawTerrain(tilesets, json.terrain);
 	}
 
@@ -84,5 +89,10 @@ class Level {
 		}
 
 		return canvas;
+	}
+
+	static async createEntities(json) {
+		const tilesets = await this.getTilesets(json);
+		return (json["entities"] || []).map(en => Entity.createEntity(tilesets, en));
 	}
 }
