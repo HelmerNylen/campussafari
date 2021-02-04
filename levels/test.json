@@ -9,6 +9,11 @@
 			"file": "rpg-urban-pack.png",
 			"tilesize": 16,
 			"separation": 1
+		},
+		{
+			"file": "roguelike-modern-city-pack.png",
+			"tilesize": 16,
+			"separation": 1
 		}
 	],
 	"terrain": {
@@ -101,6 +106,21 @@
 			},
 			"movement": {
 				"type": "Player"
+			}
+		},
+		{
+			"x": 4,
+			"y": 3,
+			"animationSet": {
+				"frameHeight": 16,
+				"south": {
+					"tileset": 2,
+					"x": 24,
+					"y": 5
+				}
+			},
+			"movement": {
+				"type": "Static"
 			}
 		}
 	]
