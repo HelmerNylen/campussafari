@@ -122,6 +122,45 @@
 			"movement": {
 				"type": "Static"
 			}
+		},
+		{
+			"x": 1,
+			"y": 2,
+			"animationSet": {
+				"frameHeight": 16,
+				"west": {
+					"tileset": 1,
+					"x": [23, 23, 23, 23],
+					"y": [3, 4, 3, 5]
+				},
+				"south": {
+					"tileset": 1,
+					"x": [24, 24, 24, 24],
+					"y": [3, 4, 3, 5]
+				},
+				"north": {
+					"tileset": 1,
+					"x": [25, 25, 25, 25],
+					"y": [3, 4, 3, 5]
+				},
+				"east": {
+					"tileset": 1,
+					"x": [26, 26, 26, 26],
+					"y": [3, 4, 3, 5]
+				}
+			},
+			"movement": {
+				"type": "Patrol",
+				"data": [
+					["east", 2],
+					["south", 2],
+					["wait", 3],
+					["north", 4],
+					["wait", 2],
+					"reverse",
+					["wait", 2]
+				]
+			}
 		}
 	]
 }
