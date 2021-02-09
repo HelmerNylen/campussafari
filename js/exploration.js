@@ -1,7 +1,12 @@
 class ExplorationController {
+	static instance = null;
+
 	constructor(canvas) {
 		this.canvas = canvas;
-		this.terrain = null;
+		this.terrainImage = null;
+		this.areas = null;
+		this.areasWidth = null;
+		this.areasHeight = null;
 		this.cellsize = null;
 		this.entities = null;
 		this.currentLevel = null;
@@ -34,6 +39,21 @@ class ExplorationController {
 			}
 			e.preventDefault();
 		});
+
+		ExplorationController.instance = this;
+	}
+
+	areaAt(x, y) {
+		const a = this.areaAtOrNull(x, y);
+		if (a === null)
+			throw Error(`Index (${x}, ${y}) out of bounds (0-${this.areasWidth - 1}, 0-${this.areasHeight - 1})`);
+		return a;
+	}
+
+	areaAtOrNull(x, y) {
+		if (x < 0 || x >= this.areasWidth || y < 0 || y >= this.areasHeight)
+			return null;
+		return this.areas[y * this.areasWidth + x];
 	}
 
 	async loadLevel(level) {
@@ -48,8 +68,11 @@ class ExplorationController {
 		}
 
 		this.currentLevel = level;
-		this.terrain = await Level.createTerrain(json);
+		this.terrainImage = await Level.createTerrain(json);
 		this.cellsize = json.terrain.cellsize;
+		this.areas = json.terrain.areaData;
+		this.areasWidth = json.terrain.width;
+		this.areasHeight = json.terrain.height;
 		this.entities = await Level.createEntities(json);
 	}
 
@@ -63,7 +86,7 @@ class ExplorationController {
 			return;
 		}
 
-		if (this.entities !== null && this.terrain !== null) {
+		if (this.entities !== null && this.terrainImage !== null) {
 			// Update entities
 			for (const entity of this.entities)
 				entity.update(delta, this.userinput);
@@ -72,7 +95,7 @@ class ExplorationController {
 			const ctx = this.canvas.getContext('2d');
 			ctx.fillStyle = "black";
 			ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-			ctx.drawImage(this.terrain, 0, 0);
+			ctx.drawImage(this.terrainImage, 0, 0);
 
 			// Draw entities
 			for (const entity of this.entities)

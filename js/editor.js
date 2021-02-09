@@ -205,7 +205,7 @@ class Editor {
 			console.log("Cannot remove the null patch");
 			return;
 		}
-		const unused = this.terrain === null || !this.terrain.data.some(
+		const unused = this.terrain === null || !this.terrain.imageData.some(
 			d => d instanceof Array ? d.some(dd => dd === this.selectedPatch) : d === this.selectedPatch
 		);
 		if (unused || confirm("This patch is used in the current terrain. Do you still want to remove it?")) {
@@ -213,26 +213,26 @@ class Editor {
 				// Gå igenom terrängdatan och ersätt den borttagna patchen med nullpatchen
 				// I fallet med flera patches på varandra raderas de översta helt om de är av typen som nu tas bort
 				// Korrigera också indexet på övriga patches
-				for (let i = 0; i < this.terrain.data.length; i++) {
-					if (this.terrain.data[i] instanceof Array) {
-						for (let j = this.terrain.data[i].length - 1; j >= 0; j++) {
-							if (this.terrain.data[i][j] === this.selectedPatch) {
-								if (j === this.terrain.data[i][j].length - 1)
-									this.terrain.data[i].splice(j, 1);
+				for (let i = 0; i < this.terrain.imageData.length; i++) {
+					if (this.terrain.imageData[i] instanceof Array) {
+						for (let j = this.terrain.imageData[i].length - 1; j >= 0; j++) {
+							if (this.terrain.imageData[i][j] === this.selectedPatch) {
+								if (j === this.terrain.imageData[i][j].length - 1)
+									this.terrain.imageData[i].splice(j, 1);
 								else
-									this.terrain.data[i][j] = 0;
-							} else if (this.terrain.data[i][j] > this.selectedPatch)
-								this.terrain.data[i][j]--;
+									this.terrain.imageData[i][j] = 0;
+							} else if (this.terrain.imageData[i][j] > this.selectedPatch)
+								this.terrain.imageData[i][j]--;
 						}
-						if (this.terrain.data[i].length === 0)
-							this.terrain.data[i] = 0;
-						else if (this.terrain.data[i].length === 1)
-							this.terrain.data[i] = this.terrain.data[i][0];
+						if (this.terrain.imageData[i].length === 0)
+							this.terrain.imageData[i] = 0;
+						else if (this.terrain.imageData[i].length === 1)
+							this.terrain.imageData[i] = this.terrain.imageData[i][0];
 					} else {
-						if (this.terrain.data[i] > this.selectedPatch)
-							this.terrain.data[i]--;
-						else if (this.terrain.data[i] === this.selectedPatch)
-							this.terrain.data[i] = 0;
+						if (this.terrain.imageData[i] > this.selectedPatch)
+							this.terrain.imageData[i]--;
+						else if (this.terrain.imageData[i] === this.selectedPatch)
+							this.terrain.imageData[i] = 0;
 					}
 				}
 			}
@@ -258,13 +258,13 @@ class Editor {
 			cellsize: cellsize,
 			width: width,
 			height: height,
-			data: new Array(width * height).fill(0)
+			imageData: new Array(width * height).fill(0)
 		};
 		if (oldTerrain !== null) {
 			for (let j = 0; j < oldTerrain.height && j < this.terrain.height; j++) {
 				for (let i = 0; i < oldTerrain.width && i < this.terrain.width; i++) {
-					if (oldTerrain.data[j * oldTerrain.width + i] !== 0)
-						this.terrain.data[j * this.terrain.width + i] = oldTerrain.data[j * oldTerrain.width + i];
+					if (oldTerrain.imageData[j * oldTerrain.width + i] !== 0)
+						this.terrain.imageData[j * this.terrain.width + i] = oldTerrain.imageData[j * oldTerrain.width + i];
 				}
 			}
 		}
@@ -279,7 +279,7 @@ class Editor {
 			cellsize: this.terrain.cellsize,
 			width: this.terrain.width,
 			height: this.terrain.height,
-			data: this.terrain.data,
+			imageData: this.terrain.imageData,
 			patches: this.patches.slice(1).map(p => ({
 				tileset: this.tilesets.findIndex(t => t === p.tileset),
 				x: p.x,
@@ -317,12 +317,12 @@ class Editor {
 		}
 		const i = this.terrainCursorY * this.terrain.width + this.terrainCursorX;
 		if (add) {
-			if (this.terrain.data[i] instanceof Array)
-				this.terrain.data[i].push(this.selectedPatch);
+			if (this.terrain.imageData[i] instanceof Array)
+				this.terrain.imageData[i].push(this.selectedPatch);
 			else
-				this.terrain.data[i] = [this.terrain.data[i], this.selectedPatch];
+				this.terrain.imageData[i] = [this.terrain.imageData[i], this.selectedPatch];
 		} else
-			this.terrain.data[i] = this.selectedPatch;
+			this.terrain.imageData[i] = this.selectedPatch;
 	}
 
 	hover(e) {
@@ -365,7 +365,7 @@ class Editor {
 				p.tileset = this.tilesets.find(_ts => _ts.image.src.endsWith(json.tilesets[p.tileset].file));
 				this.getPatch(p);
 			});
-			this.terrain.data = json.terrain.data;
+			this.terrain.imageData = json.terrain.imageData;
 			this.updateTerrainImage();
 			this.drawTerrain();
 		};
@@ -392,16 +392,16 @@ class Editor {
 					rowLength: p.rowLength,
 					scale: p.scale
 				})),
-				data: this.terrain.data.filter(_ => true)
+				imageData: this.terrain.imageData.filter(_ => true)
 			}
 		};
 
 		if (compressionLevel > 0)
 			console.warn("Compression not yet supported");
 		
-		let data = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(obj));
+		let levelData = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(obj));
 		let a = document.createElement('a');
-		a.href = data;
+		a.href = levelData;
 		a.download = "level.json";
 		a.click();
 	}

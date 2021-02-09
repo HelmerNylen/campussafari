@@ -198,6 +198,14 @@ class Entity {
 		);
 	}
 
+	canMove(direction) {
+		const area = ExplorationController.instance.areaAtOrNull(
+			Movement.nextX(this.gridX, direction),
+			Movement.nextY(this.gridY, direction)
+		);
+		return area !== null && !(area & Area.Occupied);
+	}
+
 	update(delta, userinput) {
 		if (this.waitTimer !== null) {
 			this.waitTimer -= delta;
@@ -222,10 +230,12 @@ class Entity {
 					case Direction.East:
 					case Direction.West:
 						this.direction = userinput;
-						this.gridX = Movement.nextX(this.gridX, this.direction);
-						this.gridY = Movement.nextY(this.gridY, this.direction);
 						this._currentSprite = null;
-						this.movementProgress = 0;
+						if (this.canMove(this.direction)) {
+							this.gridX = Movement.nextX(this.gridX, this.direction);
+							this.gridY = Movement.nextY(this.gridY, this.direction);
+							this.movementProgress = 0;
+						}
 						break;
 					default:
 						break;
@@ -242,11 +252,14 @@ class Entity {
 					case Direction.East:
 					case Direction.West:
 						this.direction = dir;
-						this.gridX = Movement.nextX(this.gridX, this.direction);
-						this.gridY = Movement.nextY(this.gridY, this.direction);
-						this.patrolIndex = (this.patrolIndex + 1) % this.movement.path.length;
 						this._currentSprite = null;
-						this.movementProgress = 0;
+						if (this.canMove(this.direction)) {
+							this.gridX = Movement.nextX(this.gridX, this.direction);
+							this.gridY = Movement.nextY(this.gridY, this.direction);
+							this.patrolIndex = (this.patrolIndex + 1) % this.movement.path.length;
+							this.movementProgress = 0;
+						} else
+							this.waitTimer = ENTITY_PACE;
 						break;
 
 					case Movement.PATROL_WAIT:

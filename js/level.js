@@ -1,3 +1,15 @@
+const Area = {
+	"Occupied": 1 << 0,
+	/* Här kan man lägga till andra flaggor,
+	 * t.ex. att i det här området kan man hitta vilda teknologer
+	 * eller här är det vatten man måste segla på: */
+	// "Water": 1 << 1,
+	// "Encounter": 1 << 2,
+	
+	// Portal är tänkt att kunna definiera att man hamnar i en annan värld (en av 255 andra) om man kliver här
+	"Portal": 1 << 8 | 1 << 9 | 1 << 10 | 1 << 11 | 1 << 12 | 1 << 13 | 1 << 14 | 1 << 15
+};
+
 class Level {
 	static makePatch(tileset, patchJSON) {
 		if (tileset instanceof Array)
@@ -62,7 +74,7 @@ class Level {
 		let patchesDrawnAbove = [];
 		for (let y = 0, d; y < terrain.height; y++) {
 			for (let x = 0; x < terrain.width; x++) {
-				d = terrain.data[y * terrain.width + x];
+				d = terrain.imageData[y * terrain.width + x];
 				if (d instanceof Array) {
 					patchesDrawnAbove.push([x, y]);
 					d = d[0];
@@ -73,11 +85,11 @@ class Level {
 		}
 
 		const maxLayer = Math.max(...patchesDrawnAbove.map(
-			coords => terrain.data[coords[1] * terrain.width + coords[0]].length
+			coords => terrain.imageData[coords[1] * terrain.width + coords[0]].length
 		));
 		for (let layer = 1, d; layer < maxLayer; layer++) {
 			patchesDrawnAbove = patchesDrawnAbove.filter(coords => {
-				d = terrain.data[coords[1] * terrain.width + coords[0]];
+				d = terrain.imageData[coords[1] * terrain.width + coords[0]];
 				if (layer >= d.length)
 					return false;
 				else {
