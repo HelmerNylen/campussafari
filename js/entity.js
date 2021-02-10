@@ -12,8 +12,11 @@ const Direction = {
 	"North": 3
 };
 
-// Milliseconds to move one tile
+// Millisekunder det tar att gå ett steg
 const ENTITY_PACE = 400;
+// Millisekunder det tar att vända sig
+// (man måste hålla in så här länge för att börja gå en annan riktning)
+const TURN_DURATION = 100;
 
 /** Definierar om/hur en Entity rör sig */
 class Movement {
@@ -241,17 +244,17 @@ class Entity {
 		}
 	}
 
-	update(delta, userinput) {
+	update(delta, userinput, inputDuration) {
 		if (this.waitTimer !== null) {
 			this.waitTimer -= delta;
 			if (this.waitTimer <= 0)
 				this.waitTimer = null;
 		} else
-			this._getMovementInstruction(userinput);
+			this._getMovementInstruction(userinput, inputDuration);
 		this._animationStep(delta);
 	}
 
-	_getMovementInstruction(userinput) {
+	_getMovementInstruction(userinput, inputDuration) {
 		if (this.movement.type === MovementType.Static)
 			return;
 		// If responding to player input and input is received,
@@ -264,11 +267,20 @@ class Entity {
 					case Direction.South:
 					case Direction.East:
 					case Direction.West:
-						this.direction = userinput;
-						this._currentSprite = null;
-						if (this.canMove(this.direction)) {
-							this.move(this.direction);
-							this.movementProgress = 0;
+						// If we are already facing the correct direction,
+						// start moving in the indicated direction
+						if (this.direction === userinput) {
+							if (this.canMove(this.direction)) {
+								this.move(this.direction);
+								this.movementProgress = 0;
+							}
+						}
+						else {
+							this.direction = userinput;
+							this._currentSprite = null;
+							// Turn immediately if currently walking
+							if (this.movementProgress !== 1)
+								this.waitTimer = TURN_DURATION;
 						}
 						break;
 					default:

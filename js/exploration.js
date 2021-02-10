@@ -17,28 +17,86 @@ class ExplorationController {
 		this.timestampLast = null;
 		window.requestAnimationFrame(this.update.bind(this));
 		
-		this.userinput = null;
+		this.isPressed = {
+			[Direction.North]: false,
+			[Direction.South]: false,
+			[Direction.West]: false,
+			[Direction.East]: false
+		};
+		this.lastPressed = null;
+		this.pressDuration = 0;
 		document.body.addEventListener('keydown', e => {
+			let dir;
 			switch (e.code) {
 				case 'KeyW':
 				case 'ArrowUp':
-					this.userinput = Direction.North;
+					dir = Direction.North;
 					break;
 				case 'KeyS':
 				case 'ArrowDown':
-					this.userinput = Direction.South;
+					dir = Direction.South;
 					break;
 				case 'KeyA':
 				case 'ArrowLeft':
-					this.userinput = Direction.West;
+					dir = Direction.West;
 					break;
 				case 'KeyD':
 				case 'ArrowRight':
-					this.userinput = Direction.East;
+					dir = Direction.East;
 					break;
 				default:
 					return true;
 			}
+
+			// Ignorera att flera event firas medan en knapp är nedtryckt
+			if (!this.isPressed[dir]) {
+				this.lastPressed = dir;
+				this.pressDuration = 0;
+				this.isPressed[this.lastPressed] = true;
+			}
+
+			e.preventDefault();
+		});
+
+		document.body.addEventListener('keyup', e => {
+			let dir;
+			switch (e.code) {
+				case 'KeyW':
+				case 'ArrowUp':
+					dir = Direction.North;
+					break;
+				case 'KeyS':
+				case 'ArrowDown':
+					dir = Direction.South;
+					break;
+				case 'KeyA':
+				case 'ArrowLeft':
+					dir = Direction.West;
+					break;
+				case 'KeyD':
+				case 'ArrowRight':
+					dir = Direction.East;
+					break;
+				default:
+					return true;
+			}
+
+			// "Kom ihåg" senaste knapptryckningen när i en situation
+			// när en knapp hålls ner konstant och en annan trycks kort samtidigt
+			this.isPressed[dir] = false;
+			if (this.lastPressed === dir) {
+				this.lastPressed = null;
+				this.pressDuration = 0;
+
+				for (const d of Object.keys(this.isPressed)) {
+					if (this.isPressed[d]) {
+						// Alla keys omvandlas till strings, så omvandla tillbaka
+						this.lastPressed = d * 1;
+						break;
+					}
+				}
+			}
+
 			e.preventDefault();
 		});
 
@@ -102,7 +160,7 @@ class ExplorationController {
 		if (this.entities !== null && this.terrainImage !== null) {
 			// Update entities
 			for (const entity of this.entities)
-				entity.update(delta, this.userinput);
+				entity.update(delta, this.lastPressed);
 
 			// Draw background
 			const ctx = this.canvas.getContext('2d');
@@ -120,6 +178,7 @@ class ExplorationController {
 		}
 
 		window.requestAnimationFrame(this.update.bind(this));
-		this.userinput = null;
+		if (this.lastPressed !== null)
+			this.pressDuration += delta;
 	}
 }
