@@ -153,7 +153,8 @@
 			},
 			"movement": {
 				"type": "Static"
-			}
+			},
+			"dialogue": ["Hej, jag är en vägspärr!"]
 		},
 		{
 			"x": 1,
@@ -192,7 +193,11 @@
 					"reverse",
 					["wait", 2]
 				]
-			}
+			},
+			"dialogue": [
+				"Har du någonsin funderat på vad som ligger utanför den här gräsplätten?",
+				"Känns inte som att man kan se någon krökning på horisonten iallafall."
+			]
 		},
 		{
 			"x": 7,
@@ -234,7 +239,18 @@
 						1, 0, 0, 1, 1
 					]
 				}
-			}
+			},
+			"dialogue": [
+				"Vilken vacker dag att leva i en simulering på!",
+				"Slutar vi existera om du stänger ner datorn?"
+			]
+		},
+		{
+			"x": 1,
+			"y": 3,
+			"movement": {"type": "Static"},
+			"solid": false,
+			"dialogue": ["Du hittade den gömda skatten!"]
 		}
 	]
 }

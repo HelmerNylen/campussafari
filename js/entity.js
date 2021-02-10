@@ -172,7 +172,7 @@ class Entity {
 	 * @param {AnimationSet} animationSet 
 	 * @param {Movement} movement 
 	 */
-	constructor (x, y, direction, animationSet, movement, isSolid = true) {
+	constructor (x, y, direction, animationSet, movement, isSolid = true, interaction = null) {
 		this.x = x;
 		this.y = y;
 		this.direction = direction;
@@ -192,23 +192,35 @@ class Entity {
 		if (this.movement.type === MovementType.Patrol)
 			this.patrolIndex = 0;
 
+		this.interaction = interaction;
+
 		this._currentSprite = null;
 	}
 
 	get currentSprite() {
-		if (this._currentSprite === null)
+		if (this._currentSprite === null && this.animationSet !== null)
 			this._currentSprite = this.animationSet.getFrame(this.direction, this.subimage);
 			
 		return this._currentSprite;
 	}
 
+	get isInvisible() {
+		return this.currentSprite === null;
+	}
+
 	static createEntity(tilesets, json) {
-		const animationSet = new AnimationSet(tilesets, json.animationSet);
+		let animationSet = null;
+		if (json["animationSet"])
+			animationSet = new AnimationSet(tilesets, json["animationSet"]);
+
 		return new Entity(
 			json.x, json.y,
 			json["direction"],
 			animationSet,
-			new Movement(MovementType[json.movement.type], json.movement["data"] || null)
+			new Movement(MovementType[json.movement.type], json.movement["data"] || null),
+			json["solid"],
+			// Default interaction is to play dialogue, if there is any
+			json["dialogue"] && (() => ExplorationController.instance.playDialogue(json["dialogue"]))
 		);
 	}
 
@@ -263,6 +275,27 @@ class Entity {
 		}
 	}
 
+	/** Run when an entity is being interacted with (e.g. spoken with by the player) */
+	interactWith(incomingFrom) {
+		if (this.movement.type !== MovementType.Static) {
+			this.direction = incomingFrom;
+			this._currentSprite = null;
+		}
+		
+		if (this.interaction)
+			this.interaction();
+	}
+
+	/** Interacts with the entity this entity is facing */
+	startInteraction() {
+		const lookAtX = Movement.nextX(this.gridX, this.direction);
+		const lookAtY = Movement.nextY(this.gridY, this.direction);
+		ExplorationController.instance.entities.forEach(e => {
+			if (e.gridX === lookAtX && e.gridY === lookAtY)
+				e.interactWith((this.direction + 2) % 4); // Opposite direction
+		});
+	}
+
 	update(delta, userinput, inputDuration) {
 		if (this.waitTimer !== null) {
 			this.waitTimer -= delta;
@@ -301,6 +334,9 @@ class Entity {
 							if (this.movementProgress !== 1)
 								this.waitTimer = TURN_DURATION;
 						}
+						break;
+					case ExplorationController.PLAYER_INTERACT:
+						this.startInteraction();
 						break;
 					default:
 						break;

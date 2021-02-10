@@ -2,6 +2,7 @@ class ExplorationController {
 	/** Den aktiva instansen, om sådan finns
 	 *  @type ExplorationController */
 	static instance = null;
+	static PLAYER_INTERACT = Math.max(...Object.values(Direction)) + 1;
 
 	constructor(canvas) {
 		this.canvas = canvas;
@@ -21,61 +22,67 @@ class ExplorationController {
 			[Direction.North]: false,
 			[Direction.South]: false,
 			[Direction.West]: false,
-			[Direction.East]: false
+			[Direction.East]: false,
+			[ExplorationController.PLAYER_INTERACT]: false
 		};
 		this.lastPressed = null;
 		this.pressDuration = 0;
 		document.body.addEventListener('keydown', e => {
-			let dir;
+			let action;
 			switch (e.code) {
 				case 'KeyW':
 				case 'ArrowUp':
-					dir = Direction.North;
+					action = Direction.North;
 					break;
 				case 'KeyS':
 				case 'ArrowDown':
-					dir = Direction.South;
+					action = Direction.South;
 					break;
 				case 'KeyA':
 				case 'ArrowLeft':
-					dir = Direction.West;
+					action = Direction.West;
 					break;
 				case 'KeyD':
 				case 'ArrowRight':
-					dir = Direction.East;
+					action = Direction.East;
+					break;
+				case 'Space':
+					action = ExplorationController.PLAYER_INTERACT;
 					break;
 				default:
 					return true;
 			}
 
 			// Ignorera att flera event firas medan en knapp är nedtryckt
-			if (!this.isPressed[dir]) {
-				this.lastPressed = dir;
+			if (action !== null && !this.isPressed[action]) {
+				this.lastPressed = action;
 				this.pressDuration = 0;
 				this.isPressed[this.lastPressed] = true;
 			}
-
 			e.preventDefault();
 		});
 
 		document.body.addEventListener('keyup', e => {
-			let dir;
+			let action;
 			switch (e.code) {
 				case 'KeyW':
 				case 'ArrowUp':
-					dir = Direction.North;
+					action = Direction.North;
 					break;
 				case 'KeyS':
 				case 'ArrowDown':
-					dir = Direction.South;
+					action = Direction.South;
 					break;
 				case 'KeyA':
 				case 'ArrowLeft':
-					dir = Direction.West;
+					action = Direction.West;
 					break;
 				case 'KeyD':
 				case 'ArrowRight':
-					dir = Direction.East;
+					action = Direction.East;
+					break;
+				case 'Space':
+					action = ExplorationController.PLAYER_INTERACT;
 					break;
 				default:
 					return true;
@@ -83,13 +90,14 @@ class ExplorationController {
 
 			// "Kom ihåg" senaste knapptryckningen när i en situation
 			// när en knapp hålls ner konstant och en annan trycks kort samtidigt
-			this.isPressed[dir] = false;
-			if (this.lastPressed === dir) {
+			this.isPressed[action] = false;
+			if (this.lastPressed === action) {
 				this.lastPressed = null;
 				this.pressDuration = 0;
 
 				for (const d of Object.keys(this.isPressed)) {
-					if (this.isPressed[d]) {
+					// Återaktivera inte interaktionstangenten
+					if (this.isPressed[d] && d !== ExplorationController.PLAYER_INTERACT) {
 						// Alla keys omvandlas till strings, så omvandla tillbaka
 						this.lastPressed = d * 1;
 						break;
@@ -125,6 +133,19 @@ class ExplorationController {
 			this.areas[y * this.areasWidth + x] |= flag;
 		else
 			this.areas[y * this.areasWidth + x] &= ~flag;
+	}
+
+	playDialogue(dialogue) {
+		// Det ska väl till nån snygg UI-lösning på detta, ja
+		for (const line of dialogue)
+			alert(line);
+		
+		// alert() blockar keyup så för att inte skicka \inf dialoger får vi göra detta tills ett annat dialogsystem existerar
+		this.isPressed[ExplorationController.PLAYER_INTERACT] = false;
+		if (this.lastPressed === ExplorationController.PLAYER_INTERACT) {
+			this.lastPressed = null;
+			this.pressDuration = 0;
+		}
 	}
 
 	async loadLevel(level) {
@@ -170,11 +191,12 @@ class ExplorationController {
 
 			// Draw entities
 			for (const entity of this.entities)
-				ctx.drawImage(
-					entity.currentSprite,
-					this.cellsize * entity.x,
-					this.cellsize * entity.y
-				);
+				if (!entity.isInvisible)
+					ctx.drawImage(
+						entity.currentSprite,
+						this.cellsize * entity.x,
+						this.cellsize * entity.y
+					);
 		}
 
 		window.requestAnimationFrame(this.update.bind(this));
