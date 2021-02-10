@@ -1,4 +1,6 @@
 class ExplorationController {
+	/** Den aktiva instansen, om sådan finns
+	 *  @type ExplorationController */
 	static instance = null;
 
 	constructor(canvas) {
@@ -53,7 +55,18 @@ class ExplorationController {
 	areaAtOrNull(x, y) {
 		if (x < 0 || x >= this.areasWidth || y < 0 || y >= this.areasHeight)
 			return null;
+
 		return this.areas[y * this.areasWidth + x];
+	}
+
+	setAreaAt(x, y, flag, set) {
+		if (x < 0 || x >= this.areasWidth || y < 0 || y >= this.areasHeight)
+			throw Error(`Index (${x}, ${y}) out of bounds (0-${this.areasWidth - 1}, 0-${this.areasHeight - 1})`);
+		
+		if (set)
+			this.areas[y * this.areasWidth + x] |= flag;
+		else
+			this.areas[y * this.areasWidth + x] &= ~flag;
 	}
 
 	async loadLevel(level) {

@@ -161,11 +161,9 @@ class Entity {
 	 * @param {AnimationSet} animationSet 
 	 * @param {Movement} movement 
 	 */
-	constructor (x, y, direction, animationSet, movement) {
+	constructor (x, y, direction, animationSet, movement, isSolid = true) {
 		this.x = x;
 		this.y = y;
-		this.gridX = Math.round(x);
-		this.gridY = Math.round(y);
 		this.direction = direction;
 		if (this.direction === undefined)
 			this.direction = Direction.South;
@@ -174,6 +172,11 @@ class Entity {
 		this.movementProgress = null;
 		this.waitTimer = null;
 		this.subimage = 0;
+
+		this.isSolid = isSolid;
+		this.gridX = null;
+		this.gridY = null;
+		this.moveTo(Math.round(this.x), Math.round(this.y));
 
 		if (this.movement.type === MovementType.Patrol)
 			this.patrolIndex = 0;
@@ -199,11 +202,43 @@ class Entity {
 	}
 
 	canMove(direction) {
-		const area = ExplorationController.instance.areaAtOrNull(
+		return this.canMoveTo(
 			Movement.nextX(this.gridX, direction),
 			Movement.nextY(this.gridY, direction)
 		);
+	}
+
+	canMoveTo(gridX, gridY) {
+		const area = ExplorationController.instance.areaAtOrNull(gridX, gridY);
 		return area !== null && !(area & Area.Occupied);
+	}
+
+	move(direction) {
+		this.moveTo(
+			Movement.nextX(this.gridX, direction),
+			Movement.nextY(this.gridY, direction)
+		);
+	}
+
+	moveTo(newGridX, newGridY) {
+		if (this.isSolid && this.gridX !== null && this.gridY !== null) {
+			// Vacate the spot the entity is leaving
+			ExplorationController.instance.setAreaAt(
+				this.gridX, this.gridY,
+				Area.Occupied, false
+			);
+		}
+
+		this.gridX = newGridX;
+		this.gridY = newGridY;
+
+		if (this.isSolid) {
+			// Occupy the spot the entity is arriving in
+			ExplorationController.instance.setAreaAt(
+				this.gridX, this.gridY,
+				Area.Occupied, true
+			);
+		}
 	}
 
 	update(delta, userinput) {
@@ -232,8 +267,7 @@ class Entity {
 						this.direction = userinput;
 						this._currentSprite = null;
 						if (this.canMove(this.direction)) {
-							this.gridX = Movement.nextX(this.gridX, this.direction);
-							this.gridY = Movement.nextY(this.gridY, this.direction);
+							this.move(this.direction);
 							this.movementProgress = 0;
 						}
 						break;
@@ -254,8 +288,7 @@ class Entity {
 						this.direction = dir;
 						this._currentSprite = null;
 						if (this.canMove(this.direction)) {
-							this.gridX = Movement.nextX(this.gridX, this.direction);
-							this.gridY = Movement.nextY(this.gridY, this.direction);
+							this.move(this.direction);
 							this.patrolIndex = (this.patrolIndex + 1) % this.movement.path.length;
 							this.movementProgress = 0;
 						} else
