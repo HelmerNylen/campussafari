@@ -17,6 +17,8 @@ const ENTITY_PACE = 400;
 // Millisekunder det tar att vända sig
 // (man måste hålla in så här länge för att börja gå en annan riktning)
 const TURN_DURATION = 100;
+// Campus defence <3
+const MAGIC_NUMBER = 4;
 
 /** Definierar om/hur en Entity rör sig */
 class Movement {
@@ -37,7 +39,13 @@ class Movement {
 			case MovementType.Wander:
 				this.originX = data.originX;
 				this.originY = data.originY;
-				this.area = data.area;
+				this.areaWidth = data.areaWidth;
+				this.areaHeight = data.areaHeight;
+				this.area = data["area"] || new Array(this.areaWidth * this.areaHeight).fill(0);
+				this.waitTimeMultiplier = data["waitTimeMultiplier"] || 1;
+				this.extraMoveChance = data["extraMoveChance"] || 0.2;
+				this.turnChance = data["turnChance"] || 0.6;
+				this.wanderWaitTime = () => ENTITY_PACE * MAGIC_NUMBER * this.waitTimeMultiplier * (1 + Math.random() * 0.5);
 				break;
 			case MovementType.Player:
 				break;
@@ -212,6 +220,17 @@ class Entity {
 	}
 
 	canMoveTo(gridX, gridY) {
+		if (this.movement.type === MovementType.Wander) {
+			const relX = gridX - this.movement.originX;
+			const relY = gridY - this.movement.originY;
+			// Wandering entities cannot move outside their region,
+			if (relX < 0 || relX >= this.movement.areaWidth || relY < 0 || relY >= this.movement.areaHeight)
+				return false;
+			// or to forbidden spaces inside the region
+			if (this.movement.area[relX + relY * this.movement.areaWidth])
+				return false;
+		}
+
 		const area = ExplorationController.instance.areaAtOrNull(gridX, gridY);
 		return area !== null && !(area & Area.Occupied);
 	}
@@ -313,6 +332,30 @@ class Entity {
 						break;
 				}
 			}
+		}
+		else if (this.movement.type === MovementType.Wander) {
+			if (this.movementProgress === null
+					|| (this.movementProgress === 1 && Math.random() < this.movement.extraMoveChance)) {
+				
+				if (Math.random() < this.movement.turnChance) {
+					// Wandering can either just turn the entity
+					const dirs = Object.values(Direction).filter(d => d !== this.direction);
+					this.direction = dirs[Math.floor(Math.random() * dirs.length)];
+					this._currentSprite = null;
+					this.waitTimer = this.movement.wanderWaitTime();
+				} else {
+					// Or have it walk a step in a valid direction
+					const dirs = Object.values(Direction).filter(d => this.canMove(d));
+					if (dirs.length > 0) {
+						this.direction = dirs[Math.floor(Math.random() * dirs.length)];
+						this._currentSprite = null;
+						this.move(this.direction);
+						this.movementProgress = 0;
+					} else // No directions available, wait
+						this.waitTimer = this.movement.wanderWaitTime();
+				}
+			} else if (this.movementProgress === 1)
+				this.waitTimer = this.movement.wanderWaitTime();
 		}
 	}
 
