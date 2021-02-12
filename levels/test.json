@@ -188,6 +188,8 @@
 					["east", 2],
 					["south", 2],
 					["wait", 3],
+					["east", 0],
+					["west", 0],
 					["north", 4],
 					["wait", 2],
 					"reverse",

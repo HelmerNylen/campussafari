@@ -90,8 +90,6 @@ class Movement {
 			return gridY;
 	}
 
-	static PATROL_WAIT = -1;
-
 	static _uncompressPath(path) {
 		let res = [];
 
@@ -107,8 +105,11 @@ class Movement {
 				case "west":
 					for (const dir of Object.keys(Direction)) {
 						if (pathElement[0].toLowerCase() === dir.toLowerCase()) {
-							for (let i = 0; i < pathElement[1]; i++)
-								res.push(Direction[dir]);
+							if (pathElement[1] === 0)
+								res.push(["turn", Direction[dir]]);
+							else
+								for (let i = 0; i < pathElement[1]; i++)
+									res.push(["walk", Direction[dir]]);
 							break;
 						}
 					}
@@ -117,16 +118,20 @@ class Movement {
 				// Instruction to wait 1 step worth of time
 				case "wait":
 					for (let i = 0; i < pathElement[1]; i++)
-						res.push(this.PATROL_WAIT);
+						res.push(["wait"]);
 					break;
 				
 				// Instruction to follow all the opposites of previous commands (returning to the starting position)
 				case "reverse":
-					for (let i = res.length - 1; i >= 0; i--)
-						if (res[i] === this.PATROL_WAIT)
+					for (let i = res.length - 1; i >= 0; i--) {
+						if (res[i][0] === "wait")
 							res.push(res[i]);
-						else 
-							res.push((res[i] + 2) % 4); // Opposite direction
+						else if (res[i][0] === "turn")
+							// Vet inte om detta är det väntade beteendet egentligen men men
+							res.push([res[i][0], (res[i][1] + 2) % 4]); // Opposite direction
+						else // res[i][0] === "walk"
+							res.push([res[i][0], (res[i][1] + 2) % 4]); // Opposite direction
+					}
 					break;
 
 				default:
@@ -345,14 +350,11 @@ class Entity {
 		}
 		else if (this.movement.type === MovementType.Patrol) {
 			if (this.movementProgress === null || this.movementProgress === 1) {
-				const dir = this.movement.path[this.patrolIndex];
+				const instruction = this.movement.path[this.patrolIndex];
 				
-				switch (dir) {
-					case Direction.North:
-					case Direction.South:
-					case Direction.East:
-					case Direction.West:
-						this.direction = dir;
+				switch (instruction[0]) {
+					case "walk":
+						this.direction = instruction[1];
 						this._currentSprite = null;
 						if (this.canMove(this.direction)) {
 							this.move(this.direction);
@@ -362,7 +364,14 @@ class Entity {
 							this.waitTimer = ENTITY_PACE;
 						break;
 
-					case Movement.PATROL_WAIT:
+					case "turn":
+						this.direction = instruction[1];
+						this._currentSprite = null;
+						this.patrolIndex = (this.patrolIndex + 1) % this.movement.path.length;
+						this.waitTimer = TURN_DURATION * 2;
+						break;
+
+					case "wait":
 						this.patrolIndex = (this.patrolIndex + 1) % this.movement.path.length;
 						this.waitTimer = ENTITY_PACE;
 						break;
