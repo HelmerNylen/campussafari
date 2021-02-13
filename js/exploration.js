@@ -17,6 +17,12 @@ class ExplorationController {
 
 		this.timestampLast = null;
 		window.requestAnimationFrame(this.update.bind(this));
+
+		this.camMarginX = 4 * 16;
+		this.camMarginY = 3 * 16;
+		this.camOffsetX = 0;
+		this.camOffsetY = 0;
+		this.camTracking = null;
 		
 		this.isPressed = {
 			[Direction.North]: false,
@@ -166,6 +172,7 @@ class ExplorationController {
 		this.areasWidth = json.terrain.width;
 		this.areasHeight = json.terrain.height;
 		this.entities = await Level.createEntities(json);
+		this.camTracking = this.entities.find(e => e.movement.type === MovementType.Player);
 	}
 
 	update(timestamp) {
@@ -183,19 +190,33 @@ class ExplorationController {
 			for (const entity of this.entities)
 				entity.update(delta, this.lastPressed);
 
+			// Update camera position
+			if (this.camTracking) {
+				const x = this.camTracking.x * this.cellsize;
+				const y = this.camTracking.y * this.cellsize;
+				if (x - this.camOffsetX < this.camMarginX)
+					this.camOffsetX = x - this.camMarginX;
+				else if (this.camOffsetX + this.canvas.width - (x + this.cellsize) < this.camMarginX)
+					this.camOffsetX = x + this.cellsize + this.camMarginX - this.canvas.width;
+				if (y - this.camOffsetY < this.camMarginY)
+					this.camOffsetY = y - this.camMarginY;
+				else if (this.camOffsetY + this.canvas.height - (y + this.cellsize) < this.camMarginY)
+					this.camOffsetY = y + this.cellsize + this.camMarginY - this.canvas.height;
+			}
+
 			// Draw background
 			const ctx = this.canvas.getContext('2d');
 			ctx.fillStyle = "black";
 			ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-			ctx.drawImage(this.terrainImage, 0, 0);
+			ctx.drawImage(this.terrainImage, -this.camOffsetX, -this.camOffsetY);
 
 			// Draw entities
 			for (const entity of this.entities)
 				if (!entity.isInvisible)
 					ctx.drawImage(
 						entity.currentSprite,
-						this.cellsize * entity.x,
-						this.cellsize * entity.y
+						this.cellsize * entity.x - this.camOffsetX,
+						this.cellsize * entity.y - this.camOffsetY
 					);
 		}
 

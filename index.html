@@ -20,7 +20,9 @@
 	<script type="text/javascript" src="js/exploration.js"></script>
 </head>
 <body>
-	<canvas id="gameboard" width="768" height="512" style="border:1px solid #000;"></canvas>
+	<div style="width: 672px; height: 480px;">
+		<canvas id="gameboard" width="224" height="160" style="transform: scale(3); transform-origin: 0 0;"></canvas>
+	</div>
 	<p><a href="editor.html">Level editor</a></p>
 	<script type="text/javascript">
 		window.onload = () => {
