@@ -13,6 +13,8 @@ class ExplorationController {
 		this.cellsize = null;
 		this.entities = null;
 		this.currentLevel = null;
+		this.adjacentLevels = null;
+
 		this.loadingMessage = null;
 
 		this.timestampLast = null;
@@ -114,6 +116,11 @@ class ExplorationController {
 			e.preventDefault();
 		});
 
+		// Tillsvidare
+		document.getElementById("saveButton").addEventListener("click", e => {
+			this.saveState();
+		});
+
 		ExplorationController.instance = this;
 	}
 
@@ -125,14 +132,16 @@ class ExplorationController {
 	}
 
 	areaAtOrNull(x, y) {
-		if (x < 0 || x >= this.areasWidth || y < 0 || y >= this.areasHeight)
+		if (!Number.isSafeInteger(x) || x < 0 || x >= this.areasWidth
+				|| !Number.isSafeInteger(y) || y < 0 || y >= this.areasHeight)
 			return null;
 
 		return this.areas[y * this.areasWidth + x];
 	}
 
 	setAreaAt(x, y, flag, set) {
-		if (x < 0 || x >= this.areasWidth || y < 0 || y >= this.areasHeight)
+		if (!Number.isSafeInteger(x) || x < 0 || x >= this.areasWidth
+				|| !Number.isSafeInteger(y) || y < 0 || y >= this.areasHeight)
 			throw Error(`Index (${x}, ${y}) out of bounds (0-${this.areasWidth - 1}, 0-${this.areasHeight - 1})`);
 		
 		if (set)
@@ -154,7 +163,8 @@ class ExplorationController {
 		}
 	}
 
-	async loadLevel(level) {
+	async loadLevel(level, playerEntity = null, playerState = null) {
+		this.loadingMessage = `Loading level: ${level}`;
 		if (typeof level !== "string")
 			throw Error("Invalid level: " + level);
 		let json;
@@ -166,13 +176,108 @@ class ExplorationController {
 		}
 
 		this.currentLevel = level;
+		this.loadingMessage = "Drawing terrain";
 		this.terrainImage = await Level.createTerrain(json);
 		this.cellsize = json.terrain.cellsize;
 		this.areas = json.terrain.areaData;
 		this.areasWidth = json.terrain.width;
 		this.areasHeight = json.terrain.height;
+		this.adjacentLevels = json.adjacent;
+		this.loadingMessage = "Loading entities";
 		this.entities = await Level.createEntities(json);
-		this.camTracking = this.entities.find(e => e.movement.type === MovementType.Player);
+		
+		if (playerEntity === null)
+			playerEntity = this.entities.find(e => e.movement.type === MovementType.Player);
+		if (playerState === null)
+			playerState = JSON.parse(window.localStorage.getItem("playerState") || null);
+
+		// Place player last, if already defined (else append provided player entity)
+		this.entities = this.entities.filter(
+			e => e.movement.type !== MovementType.Player
+		).concat([playerEntity]);
+		
+		// Read positions of entities
+		const levelState = JSON.parse(window.localStorage.getItem("levelState") || "{}");
+		if (levelState[this.currentLevel])
+			Entity.setStates(this.entities, levelState[this.currentLevel].concat([playerState]));
+		else if (playerState)
+			playerEntity.setState(playerState);
+
+		this.centerCameraOn(playerEntity);
+		this.camTracking = playerEntity;
+
+		this.loadingMessage = null;
+	}
+
+	saveState() {
+		let levelState = JSON.parse(window.localStorage.getItem("levelState") || "{}");
+		// Player state handled separately
+		levelState[this.currentLevel] = this.entities.filter(
+			e => e.movement.type !== MovementType.Player
+		).map(
+			e => e.getState()
+		);
+		window.localStorage.setItem("levelState", JSON.stringify(levelState));
+		console.log(`Saved state of ${this.currentLevel}`);
+
+		const player = this.entities.find(e => e.movement.type === MovementType.Player);
+		window.localStorage.setItem("playerState", JSON.stringify(player.getState()));
+
+		window.localStorage.setItem("currentLevel", JSON.stringify(this.currentLevel));
+	}
+
+	unloadLevel() {
+		this.saveState();
+
+		this.currentLevel = null;
+		this.terrainImage = null;
+		this.cellsize = null;
+		this.areas = null;
+		this.areasWidth = null;
+		this.areasHeight = null;
+		this.entities = null;
+		this.camTracking = null;
+		this.adjacentLevels = null;
+	}
+
+	changeLevel(destinationInfo) {
+		const player = this.camTracking;
+		player.moveTo(null, null);
+
+		const playerState = {
+			gridX: destinationInfo.x,
+			gridY: destinationInfo.y,
+			waitTimer: null,
+			movementProgress: 0 // Gör att vi promenerar in på rutan vi anländer till
+		};
+		if ("direction" in destinationInfo) {
+			if (typeof destinationInfo.direction === "string")
+				playerState.direction = Direction[Object.keys(Direction).find(d => d.toLowerCase() === destinationInfo.direction.toLowerCase())];
+			else
+				playerState.direction = destinationInfo.direction;
+		} else
+			playerState.direction = player.direction;
+
+		this.unloadLevel();
+		this.loadLevel(destinationInfo.level, player, playerState).then(_ => this.saveState());
+	}
+
+	centerCameraOn(entity) {
+		this.camOffsetX = Math.round((entity.x + 0.5) * this.cellsize - this.canvas.width / 2);
+		this.camOffsetY = Math.round((entity.y + 0.5) * this.cellsize - this.canvas.height / 2);
+	}
+
+	keepInFrame(entity) {
+		const x = entity.x * this.cellsize;
+		const y = entity.y * this.cellsize;
+		if (x - this.camOffsetX < this.camMarginX)
+			this.camOffsetX = x - this.camMarginX;
+		else if (this.camOffsetX + this.canvas.width - (x + this.cellsize) < this.camMarginX)
+			this.camOffsetX = x + this.cellsize + this.camMarginX - this.canvas.width;
+		if (y - this.camOffsetY < this.camMarginY)
+			this.camOffsetY = y - this.camMarginY;
+		else if (this.camOffsetY + this.canvas.height - (y + this.cellsize) < this.camMarginY)
+			this.camOffsetY = y + this.cellsize + this.camMarginY - this.canvas.height;
 	}
 
 	update(timestamp) {
@@ -192,16 +297,22 @@ class ExplorationController {
 
 			// Update camera position
 			if (this.camTracking) {
-				const x = this.camTracking.x * this.cellsize;
-				const y = this.camTracking.y * this.cellsize;
-				if (x - this.camOffsetX < this.camMarginX)
-					this.camOffsetX = x - this.camMarginX;
-				else if (this.camOffsetX + this.canvas.width - (x + this.cellsize) < this.camMarginX)
-					this.camOffsetX = x + this.cellsize + this.camMarginX - this.canvas.width;
-				if (y - this.camOffsetY < this.camMarginY)
-					this.camOffsetY = y - this.camMarginY;
-				else if (this.camOffsetY + this.canvas.height - (y + this.cellsize) < this.camMarginY)
-					this.camOffsetY = y + this.cellsize + this.camMarginY - this.canvas.height;
+				this.keepInFrame(this.camTracking);
+
+				// Change level if a portal is entered
+				if (this.camTracking.movementProgress === 1) {
+					const a = this.areaAt(this.camTracking.gridX, this.camTracking.gridY);
+					if (a & Area.Portal) {
+						console.log("Check passed");
+						// Compute the portal destination (index stored in bits 8-15)
+						const portalTo = (a & Area.Portal) >> Math.log2(Area.Portal & -Area.Portal);
+						// Actual next level name and position is stored in a level's "adjacent" field (1-indexed)
+						this.changeLevel(this.adjacentLevels[portalTo - 1]);
+						
+						window.requestAnimationFrame(this.update.bind(this));
+						return;
+					}
+				}
 			}
 
 			// Draw background
@@ -218,6 +329,15 @@ class ExplorationController {
 						this.cellsize * entity.x - this.camOffsetX,
 						this.cellsize * entity.y - this.camOffsetY
 					);
+
+
+		} else if (this.loadingMessage !== null) {
+			const ctx = this.canvas.getContext('2d');
+			ctx.fillStyle = "black";
+			ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+			ctx.fillStyle = "gray";
+			ctx.textAlign = "center";
+			ctx.fillText(this.loadingMessage, this.canvas.width / 2, this.canvas.height / 2, this.canvas.width);
 		}
 
 		window.requestAnimationFrame(this.update.bind(this));

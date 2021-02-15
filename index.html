@@ -23,10 +23,12 @@
 	<div style="width: 672px; height: 480px;">
 		<canvas id="gameboard" width="224" height="160" style="transform: scale(3); transform-origin: 0 0;"></canvas>
 	</div>
-	<p><a href="editor.html">Level editor</a></p>
+	<p><a href="editor.html">Level editor</a>&nbsp;<button id="saveButton">Save</button></p>
 	<script type="text/javascript">
+		let con;
 		window.onload = () => {
-			new ExplorationController(document.getElementById("gameboard")).loadLevel("test");
+			con = new ExplorationController(document.getElementById("gameboard"));
+			con.loadLevel(JSON.parse(window.localStorage.getItem("currentLevel")) || "test");
 
 			/*loadResources("levels/test.json", JSON).then(items => {
 				Level.createTerrain(items[0]).then(canvas => {

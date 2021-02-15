@@ -271,7 +271,7 @@ class Entity {
 		this.gridX = newGridX;
 		this.gridY = newGridY;
 
-		if (this.isSolid) {
+		if (this.isSolid && this.gridX !== null && this.gridY !== null) {
 			// Occupy the spot the entity is arriving in
 			ExplorationController.instance.setAreaAt(
 				this.gridX, this.gridY,
@@ -415,7 +415,10 @@ class Entity {
 			this.movementProgress = Math.min(1, this.movementProgress + delta / ENTITY_PACE);
 
 			// Compute new animation frame
-			const newSubimage = Math.min(this.animationSet.length[this.direction] - 1, Math.floor(this.movementProgress * this.animationSet.length[this.direction]));
+			const newSubimage = Math.min(
+				this.animationSet.length[this.direction] - 1,
+				Math.floor(this.movementProgress * this.animationSet.length[this.direction])
+			);
 			if (newSubimage !== this.subimage) {
 				this.subimage = newSubimage;
 				this._currentSprite = null;
@@ -425,5 +428,57 @@ class Entity {
 			this.x = Movement.interpolateX(this.gridX, this.direction, this.movementProgress);
 			this.y = Movement.interpolateY(this.gridY, this.direction, this.movementProgress);
 		}
+	}
+
+	getState() {
+		let state = {
+			direction: this.direction,
+			gridX: this.gridX,
+			gridY: this.gridY,
+			movementProgress: this.movementProgress,
+			waitTimer: this.waitTimer
+		};
+		if (this.movement.type === MovementType.Patrol)
+			state.patrolIndex = this.patrolIndex;
+
+		return state;
+	}
+
+	setState(state) {
+		this.moveTo(state.gridX, state.gridY);
+		this.direction = state.direction;
+		this.movementProgress = state.movementProgress;
+		this.waitTimer = state.waitTimer;
+		if (this.movement.type === MovementType.Patrol)
+			this.patrolIndex = state.patrolIndex;
+
+		if (this.movementProgress === null) {
+			this.subimage = 0;
+			this.x = this.gridX;
+			this.y = this.gridY;
+		}
+		else {
+			this.subimage = Math.min(
+				this.animationSet.length[this.direction] - 1,
+				Math.floor(this.movementProgress * this.animationSet.length[this.direction])
+			);
+			this.x = Movement.interpolateX(this.gridX, this.direction, this.movementProgress);
+			this.y = Movement.interpolateY(this.gridY, this.direction, this.movementProgress);
+		}
+		this._currentSprite = null;
+	}
+
+	static setStates(entities, states) {
+		if (entities.length !== states.length)
+			throw new Error(`Different number of entities (${entities.length}) and states (${states.length}) provided`);
+		
+		// Frigör alla platser som entities står på
+		for (const entity of entities)
+			entity.moveTo(null, null);
+		
+		for (let i = 0; i < entities.length; i++)
+			entities[i].setState(states[i]);
+		
+		console.log(entities[entities.length - 1], states[states.length - 1]);
 	}
 }
