@@ -186,15 +186,52 @@ class ExplorationController {
 		this.loadingMessage = "Loading entities";
 		this.entities = await Level.createEntities(json);
 		
-		if (playerEntity === null)
-			playerEntity = this.entities.find(e => e.movement.type === MovementType.Player);
+		if (playerEntity === null) {
+			const playerInd = this.entities.findIndex(e => e.movement.type === MovementType.Player);
+			// If this level defined the player entity, store the definition so we can use it in other levels
+			if (playerInd !== -1) {
+				playerEntity = this.entities[playerInd];
+				const entityDef = json["entities"][playerInd];
+
+				// Keep only relevant tilesets
+				entityDef["tilesets"] = [];
+				for (let tilesetInd = 0; tilesetInd < json.tilesets.length; tilesetInd++) {
+					let isPresent = false;
+
+					if (entityDef.hasOwnProperty("animationSet")) {
+						for (const patch of Object.values(entityDef["animationSet"])) {
+							if (patch.hasOwnProperty("tileset") && patch.tileset === tilesetInd) {
+								isPresent = true;
+								// Reassign tileset indices on patches to use the list we are generating
+								patch.tileset = entityDef["tilesets"].length;
+							}
+						}
+					}
+
+					if (isPresent)
+						entityDef["tilesets"].push(json.tilesets[tilesetInd])
+				}
+
+				// Set via playerState when the entity is created
+				entityDef.x = null;
+				entityDef.y = null;
+
+				window.localStorage.setItem("playerEntityDef", JSON.stringify(entityDef));
+			}
+			// If no player provided and none found in this level, read entity definition from storage
+			else {
+				const json = JSON.parse(window.localStorage.getItem("playerEntityDef"));
+				const tilesets = await Level.getTilesets(json);
+				playerEntity = Entity.createEntity(tilesets, json);
+			}
+		}
 		if (playerState === null)
 			playerState = JSON.parse(window.localStorage.getItem("playerState") || null);
 
 		// Place player last, if already defined (else append provided player entity)
-		this.entities = this.entities.filter(
-			e => e.movement.type !== MovementType.Player
-		).concat([playerEntity]);
+		this.entities = this.entities
+			.filter(e => e.movement.type !== MovementType.Player)
+			.concat([playerEntity]);
 		
 		// Read positions of entities
 		const levelState = JSON.parse(window.localStorage.getItem("levelState") || "{}");
@@ -212,14 +249,12 @@ class ExplorationController {
 	saveState() {
 		let levelState = JSON.parse(window.localStorage.getItem("levelState") || "{}");
 		// Player state handled separately
-		levelState[this.currentLevel] = this.entities.filter(
-			e => e.movement.type !== MovementType.Player
-		).map(
-			e => e.getState()
-		);
+		levelState[this.currentLevel] = this.entities
+			.filter(e => e.movement.type !== MovementType.Player)
+			.map(e => e.getState());
 		window.localStorage.setItem("levelState", JSON.stringify(levelState));
 		console.log(`Saved state of ${this.currentLevel}`);
-
+		
 		const player = this.entities.find(e => e.movement.type === MovementType.Player);
 		window.localStorage.setItem("playerState", JSON.stringify(player.getState()));
 

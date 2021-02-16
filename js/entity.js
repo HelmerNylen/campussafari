@@ -192,7 +192,9 @@ class Entity {
 		this.isSolid = isSolid;
 		this.gridX = null;
 		this.gridY = null;
-		this.moveTo(Math.round(this.x), Math.round(this.y));
+		if (this.x !== null && this.y !== null) {
+			this.moveTo(Math.round(this.x), Math.round(this.y));
+		}
 
 		if (this.movement.type === MovementType.Patrol)
 			this.patrolIndex = 0;
@@ -478,7 +480,5 @@ class Entity {
 		
 		for (let i = 0; i < entities.length; i++)
 			entities[i].setState(states[i]);
-		
-		console.log(entities[entities.length - 1], states[states.length - 1]);
 	}
 }
