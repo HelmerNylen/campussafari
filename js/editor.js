@@ -11,7 +11,7 @@ class Editor {
 			"lpc-house-interior-and-decorations.png",
 			"roguelike-modern-city-pack.png",
 			"rpg-urban-pack.png"
-		].map(f => "tilesets/" + f);
+		];
 	}
 
 	constructor(tilesets, tilesetCanvas, tilesetName, tilesizeInput, separationInput, patchCanvas, patchWidthInput, patchScaleInput, levelCanvas) {
@@ -313,7 +313,7 @@ class Editor {
 	setTerrainPatch(add) {
 		if (this.terrain === null) {
 			alert("Create a terrain first");
-			return;
+			return false;
 		}
 		const i = this.terrainCursorY * this.terrain.width + this.terrainCursorX;
 		if (add) {
@@ -323,6 +323,8 @@ class Editor {
 				this.terrain.imageData[i] = [this.terrain.imageData[i], this.selectedPatch];
 		} else
 			this.terrain.imageData[i] = this.selectedPatch;
+		
+		return true;
 	}
 
 	hover(e) {
@@ -372,7 +374,7 @@ class Editor {
 		reader.readAsText(file, "UTF-8");
 	}
 
-	exportLevel(compressionLevel) {
+	exportLevel(compressionLevel = 1) {
 		let obj = {
 			tilesets: this.tilesets.map((ts, i) => ({
 				file: Editor.tilesetFiles[i],
@@ -393,11 +395,81 @@ class Editor {
 					scale: p.scale
 				})),
 				imageData: this.terrain.imageData.filter(_ => true)
-			}
+			},
+			entities: [],
+			adjacent: []
 		};
 
-		if (compressionLevel > 0)
-			console.warn("Compression not yet supported");
+		// Remove unused patches
+		if (compressionLevel >= 2) {
+			let patchesUsed = [];
+			for (let patchInd = 0; patchInd < obj.terrain.patches.length; patchInd++) {
+				let isPresent = false;
+				for (let imageInd = 0; imageInd < obj.terrain.imageData.length; imageInd++) {
+					if (obj.terrain.imageData[imageInd] === patchInd + 1) {
+						isPresent = true;
+						obj.terrain.imageData[imageInd] = patchesUsed.length + 1;
+					}
+				}
+				if (isPresent)
+					patchesUsed.push(obj.terrain.patches[patchInd]);
+			}
+
+			obj.terrain.patches = patchesUsed;
+		}
+
+		// Remove data with implicit defaults from patches
+		if (compressionLevel >= 1) {
+			obj.terrain.patches = obj.terrain.patches.map(patch => {
+				let p = {
+					tileset: patch.tileset,
+					x: patch.x.length > 1 ? patch.x : patch.x[0],
+					y: patch.y.length > 1 ? patch.y : patch.y[0]
+				};
+				if (patch.width !== 1 || patch.height !== 1) {
+					p.width = patch.width;
+					p.height = patch.height;
+				}
+				if (patch.x.length > 1)
+					p.rowLength = patch.rowLength;
+				if (patch.scale !== 100)
+					p.scale = patch.scale;
+				
+				return p;
+			});
+		}
+
+		// Keep only relevant tilesets
+		if (compressionLevel >= 1) {
+			let tilesetsUsed = [];
+			for (let tilesetInd = 0; tilesetInd < obj.tilesets.length; tilesetInd++) {
+				let isPresent = false;
+
+				for (const patch of obj.terrain.patches) {
+					if (patch.tileset === tilesetInd) {
+						isPresent = true;
+						// Reassign tileset indices on patches to use the list we are generating
+						patch.tileset = tilesetsUsed.length;
+					}
+				}
+
+				for (const entity of obj.entities) {
+					if (entity.hasOwnProperty("animationSet")) {
+						for (const patch of Object.values(entity["animationSet"])) {
+							if (patch.hasOwnProperty("tileset") && patch.tileset === tilesetInd) {
+								isPresent = true;
+								patch.tileset = tilesetsUsed.length;
+							}
+						}
+					}
+				}
+
+				if (isPresent)
+					tilesetsUsed.push(obj.tilesets[tilesetInd])
+			}
+
+			obj.tilesets = tilesetsUsed;
+		}
 		
 		let levelData = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(obj));
 		let a = document.createElement('a');
@@ -407,7 +479,7 @@ class Editor {
 	}
 
 	static async setupEditor() {
-		let tilesets = (await loadResources(Editor.tilesetFiles)).map(i => new Tileset(i, 32));
+		let tilesets = (await loadResources(Editor.tilesetFiles.map(f => "tilesets/" + f))).map(i => new Tileset(i, 32));
 		let tilesetCanvas = document.getElementById("tileset");
 		let patchCanvas = document.getElementById("patch");
 		let levelCanvas = document.getElementById("level");
@@ -432,9 +504,10 @@ class Editor {
 
 		levelCanvas.addEventListener('mousemove', e => editor.hover(e));
 		levelCanvas.addEventListener('mousedown', e => {
-			editor.setTerrainPatch(e.shiftKey);
-			editor.updateTerrainImage();
-			editor.drawTerrain();
+			if (editor.setTerrainPatch(e.shiftKey)) {
+				editor.updateTerrainImage();
+				editor.drawTerrain();
+			}
 			e.stopPropagation();
 			e.preventDefault();
 		});
