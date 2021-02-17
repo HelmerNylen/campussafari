@@ -1,8 +1,15 @@
+const Transition = {
+	"FadeIn": 0,
+	"FadeOut": 1
+};
+
 class ExplorationController {
 	/** Den aktiva instansen, om sådan finns
 	 *  @type ExplorationController */
 	static instance = null;
 	static PLAYER_INTERACT = Math.max(...Object.values(Direction)) + 1;
+	/** Tiden det tar att animera att en level fadear ut eller in */
+	static TRANSITION_LENGTH = 200;
 
 	constructor(canvas) {
 		this.canvas = canvas;
@@ -25,6 +32,10 @@ class ExplorationController {
 		this.camOffsetX = 0;
 		this.camOffsetY = 0;
 		this.camTracking = null;
+
+		this.transitionTimer = ExplorationController.TRANSITION_LENGTH;
+		this.transitionType = Transition.FadeIn;
+		this.onTransitionDone = null;
 		
 		this.isPressed = {
 			[Direction.North]: false,
@@ -187,7 +198,7 @@ class ExplorationController {
 		this.entities = await Level.createEntities(json);
 		
 		if (playerEntity === null) {
-			const playerInd = this.entities.findIndex(e => e.movement.type === MovementType.Player);
+			const playerInd = this.entities.findIndex(e => e.isPlayerControlled);
 			// If this level defined the player entity, store the definition so we can use it in other levels
 			if (playerInd !== -1) {
 				playerEntity = this.entities[playerInd];
@@ -230,7 +241,7 @@ class ExplorationController {
 
 		// Place player last, if already defined (else append provided player entity)
 		this.entities = this.entities
-			.filter(e => e.movement.type !== MovementType.Player)
+			.filter(e => !e.isPlayerControlled)
 			.concat([playerEntity]);
 		
 		// Read positions of entities
@@ -250,12 +261,12 @@ class ExplorationController {
 		let levelState = JSON.parse(window.localStorage.getItem("levelState") || "{}");
 		// Player state handled separately
 		levelState[this.currentLevel] = this.entities
-			.filter(e => e.movement.type !== MovementType.Player)
+			.filter(e => !e.isPlayerControlled)
 			.map(e => e.getState());
 		window.localStorage.setItem("levelState", JSON.stringify(levelState));
 		console.log(`Saved state of ${this.currentLevel}`);
 		
-		const player = this.entities.find(e => e.movement.type === MovementType.Player);
+		const player = this.entities.find(e => e.isPlayerControlled);
 		window.localStorage.setItem("playerState", JSON.stringify(player.getState()));
 
 		window.localStorage.setItem("currentLevel", JSON.stringify(this.currentLevel));
@@ -326,26 +337,31 @@ class ExplorationController {
 		}
 
 		if (this.entities !== null && this.terrainImage !== null) {
-			// Update entities
-			for (const entity of this.entities)
-				entity.update(delta, this.lastPressed);
+			// Entities are not updated if we are currently doing a transition
+			if (this.transitionTimer === null) {
+				// Update entities
+				for (const entity of this.entities)
+					entity.update(delta, this.lastPressed);
 
-			// Update camera position
-			if (this.camTracking) {
-				this.keepInFrame(this.camTracking);
+				// Update camera position
+				if (this.camTracking) {
+					this.keepInFrame(this.camTracking);
 
-				// Change level if a portal is entered
-				if (this.camTracking.movementProgress === 1) {
-					const a = this.areaAt(this.camTracking.gridX, this.camTracking.gridY);
-					if (a & Area.Portal) {
-						console.log("Check passed");
-						// Compute the portal destination (index stored in bits 8-15)
-						const portalTo = (a & Area.Portal) >> Math.log2(Area.Portal & -Area.Portal);
-						// Actual next level name and position is stored in a level's "adjacent" field (1-indexed)
-						this.changeLevel(this.adjacentLevels[portalTo - 1]);
-						
-						window.requestAnimationFrame(this.update.bind(this));
-						return;
+					// Change level if a portal is entered
+					if (this.camTracking.movementProgress === 1) {
+						const a = this.areaAt(this.camTracking.gridX, this.camTracking.gridY);
+						if (a & Area.Portal) {
+							// Compute the portal destination (index stored in bits 8-15)
+							const portalTo = (a & Area.Portal) >> Math.log2(Area.Portal & -Area.Portal);
+							// Actual next level name and position is stored in a level's "adjacent" field (1-indexed)
+							this.onTransitionDone = () => {
+								this.changeLevel(this.adjacentLevels[portalTo - 1]);
+								this.transitionTimer = ExplorationController.TRANSITION_LENGTH;
+								this.transitionType = Transition.FadeIn;
+							};
+							this.transitionTimer = ExplorationController.TRANSITION_LENGTH;
+							this.transitionType = Transition.FadeOut;
+						}
 					}
 				}
 			}
@@ -364,7 +380,31 @@ class ExplorationController {
 						this.cellsize * entity.x - this.camOffsetX,
 						this.cellsize * entity.y - this.camOffsetY
 					);
+			
+			if (this.transitionTimer !== null) {
+				this.transitionTimer = Math.max(0, this.transitionTimer - delta);
+				
+				switch (this.transitionType) {
+					case Transition.FadeOut:
+						ctx.fillStyle = `rgba(0, 0, 0, ${1 - this.transitionTimer / ExplorationController.TRANSITION_LENGTH})`;
+						ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+						break;
+					case Transition.FadeIn:
+						ctx.fillStyle = `rgba(0, 0, 0, ${this.transitionTimer / ExplorationController.TRANSITION_LENGTH})`;
+						ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+						break;
+				}
 
+				if (this.transitionTimer <= 0) {
+					this.transitionTimer = null;
+					this.transitionType = null;
+					if (this.onTransitionDone) {
+						const f = this.onTransitionDone;
+						this.onTransitionDone = null;
+						f();
+					}
+				}
+			}
 
 		} else if (this.loadingMessage !== null) {
 			const ctx = this.canvas.getContext('2d');

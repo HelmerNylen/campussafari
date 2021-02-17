@@ -215,6 +215,10 @@ class Entity {
 		return this.currentSprite === null;
 	}
 
+	get isPlayerControlled() {
+		return this.movement.type === MovementType.Player;
+	}
+
 	static createEntity(tilesets, json) {
 		let animationSet = null;
 		if (json["animationSet"])
