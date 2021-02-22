@@ -26,6 +26,7 @@ class Editor {
 		this.patchWidthInput = patchWidthInput;
 		this.patchScaleInput = patchScaleInput;
 		this.levelCanvas = levelCanvas;
+		this.importedLevel = null;
 		
 		let nullPatch = document.createElement('div');
 		nullPatch.textContent = "null";
@@ -370,6 +371,20 @@ class Editor {
 			this.terrain.imageData = json.terrain.imageData;
 			this.updateTerrainImage();
 			this.drawTerrain();
+
+			// Find animation set tilesets
+			json.entities = json.entities.map(entity => {
+				if (entity.hasOwnProperty("animationSet")) {
+					for (const patch of Object.values(entity["animationSet"])) {
+						if (patch.hasOwnProperty("tileset")) {
+							patch.tileset = this.tilesets.findIndex(_ts => _ts.image.src.endsWith(json.tilesets[patch.tileset].file));
+						}
+					}
+				}
+
+				return entity;
+			});
+			this.importedLevel = json;
 		};
 		reader.readAsText(file, "UTF-8");
 	}
@@ -394,11 +409,48 @@ class Editor {
 					rowLength: p.rowLength,
 					scale: p.scale
 				})),
-				imageData: this.terrain.imageData.filter(_ => true)
+				imageData: this.terrain.imageData.filter(_ => true),
+				areaData: this.importedLevel ? this.importedLevel.terrain.areaData : new Array(this.terrain.width * this.terrain.height).fill(0)
 			},
 			entities: [],
 			adjacent: []
 		};
+
+		// Keep editor-unsupported fields invariant
+		if (this.importedLevel) {
+			obj.adjacent = this.importedLevel.adjacent;
+			obj.entities = JSON.parse(JSON.stringify(this.importedLevel.entities));
+
+			// Make areadata conform as well as possible if terrain size has changed
+			if ((this.importedLevel.terrain.width !== obj.terrain.width
+					|| this.importedLevel.terrain.height !== obj.terrain.height)) {
+				let updatedAreaData = new Array(this.terrain.width * this.terrain.height).fill(0);
+
+				if (obj.terrain.width < this.importedLevel.terrain.width || obj.terrain.height < this.importedLevel.terrain.height)
+					alert(
+						`Terrain size has changed from ${this.importedLevel.terrain.width}x${this.importedLevel.terrain.height} to ${obj.terrain.width}x${obj.terrain.height}. `
+						+ "Data outside the new area will be lost."
+					);
+				
+				for (let x = 0; x < obj.terrain.width && x < this.importedLevel.terrain.width; x++) {
+					for (let y = 0; y < obj.terrain.height && y < this.importedLevel.terrain.height; y++) {
+						updatedAreaData[y * obj.terrain.width + x] = this.importedLevel.terrain.areaData[y * this.importedLevel.terrain.width + x];
+					}
+				}
+				obj.terrain.areaData = updatedAreaData;
+			}
+
+			// Kommer säkert lägga till en massa fält i framtiden
+			// så lika bra att kopiera allt som inte tas explicit
+			for (const key of Object.keys(this.importedLevel)) {
+				if (!obj.hasOwnProperty(key))
+					obj[key] = this.importedLevel[key];
+			}
+			for (const key of Object.keys(this.importedLevel.terrain)) {
+				if (!obj.terrain.hasOwnProperty(key))
+					obj.terrain[key] = this.importedLevel.terrain[key];
+			}
+		}
 
 		// Remove unused patches
 		if (compressionLevel >= 2) {
@@ -423,16 +475,17 @@ class Editor {
 			obj.terrain.patches = obj.terrain.patches.map(patch => {
 				let p = {
 					tileset: patch.tileset,
-					x: patch.x.length > 1 ? patch.x : patch.x[0],
-					y: patch.y.length > 1 ? patch.y : patch.y[0]
+					x: patch.x instanceof Array && patch.x.length === 1 ? patch.x[0] : patch.x,
+					y: patch.y instanceof Array && patch.y.length === 1 ? patch.y[0] : patch.y
 				};
-				if (patch.width !== 1 || patch.height !== 1) {
+				if ((patch.hasOwnProperty("width") && patch.width !== 1)
+						|| (patch.hasOwnProperty("height") && patch.height !== 1)) {
 					p.width = patch.width;
 					p.height = patch.height;
 				}
-				if (patch.x.length > 1)
+				if (patch.x instanceof Array)
 					p.rowLength = patch.rowLength;
-				if (patch.scale !== 100)
+				if (patch.hasOwnProperty("scale") && patch.scale !== 100)
 					p.scale = patch.scale;
 				
 				return p;
