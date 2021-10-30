@@ -246,8 +246,8 @@
 				}
 			},
 			"dialogue": [
-				"Vilken vacker dag att leva i en simulering på!",
-				"Slutar vi existera om du stänger ner datorn?"
+				"Äre vev?",
+				{"event": "battle"}
 			]
 		},
 		{

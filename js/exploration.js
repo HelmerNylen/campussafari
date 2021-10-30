@@ -25,7 +25,8 @@ class ExplorationController {
 		this.loadingMessage = null;
 
 		this.timestampLast = null;
-		window.requestAnimationFrame(this.update.bind(this));
+		this.halt = null;
+		this.resume();
 
 		this.camMarginX = 4 * 16;
 		this.camMarginY = 3 * 16;
@@ -163,8 +164,15 @@ class ExplorationController {
 
 	playDialogue(dialogue) {
 		// Det ska väl till nån snygg UI-lösning på detta, ja
-		for (const line of dialogue)
-			alert(line);
+		for (const line of dialogue) {
+			if (typeof line === "string")
+				alert(line);
+			else switch (line.event.toLowerCase()) {
+				case "battle":
+					this.haltNextUpdate(BattleController.instance.startTest.bind(BattleController.instance));
+					break;
+			}
+		}
 		
 		// alert() blockar keyup så för att inte skicka \inf dialoger får vi göra detta tills ett annat dialogsystem existerar
 		this.isPressed[ExplorationController.PLAYER_INTERACT] = false;
@@ -326,6 +334,14 @@ class ExplorationController {
 			this.camOffsetY = y + this.cellsize + this.camMarginY - this.canvas.height;
 	}
 
+	haltNextUpdate(callback = null) {
+		this.halt = callback || true;
+	}
+
+	resume() {
+		window.requestAnimationFrame(this.update.bind(this));
+	}
+
 	update(timestamp) {
 		const delta = timestamp - this.timestampLast;
 		this.timestampLast = timestamp;
@@ -415,7 +431,13 @@ class ExplorationController {
 			ctx.fillText(this.loadingMessage, this.canvas.width / 2, this.canvas.height / 2, this.canvas.width);
 		}
 
-		window.requestAnimationFrame(this.update.bind(this));
+		if (this.halt) {
+			if (this.halt instanceof Function)
+				this.halt();
+			this.halt = null;
+		} else
+			window.requestAnimationFrame(this.update.bind(this));
+
 		if (this.lastPressed !== null)
 			this.pressDuration += delta;
 	}

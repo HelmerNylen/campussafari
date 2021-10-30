@@ -10,8 +10,16 @@
 	<meta name="theme-color" content="#069080">-->
 
 	<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;700&display=swap" rel="stylesheet" />
-	<!--<link rel="stylesheet" type="text/css" href="css/style.css">
-	<link rel="icon" type="image/png" href="img/fadderietslogga.png" />-->
+	<link rel="stylesheet" type="text/css" href="style/main.css" />
+	<link rel="stylesheet" type="text/css" href="style/battle.css" />
+	<!--<link rel="icon" type="image/png" href="img/fadderietslogga.png" />-->
+	
+	<script type="text/javascript" src="js/battle/types.js"></script>
+	<script type="text/javascript" src="js/battle/move.js"></script>
+	<script type="text/javascript" src="js/battle/teknolog.js"></script>
+	<script type="text/javascript" src="js/battle/team.js"></script>
+	<script type="text/javascript" src="js/battle/strategy.js"></script>
+	<script type="text/javascript" src="js/battle/battle.js"></script>
 
 	<script type="text/javascript" src="js/tileset.js"></script>
 	<script type="text/javascript" src="js/loader.js"></script>
@@ -27,7 +35,9 @@
 	<script type="text/javascript">
 		let con;
 		window.onload = () => {
-			con = new ExplorationController(document.getElementById("gameboard"));
+			const gameboard = document.getElementById("gameboard");
+			new BattleController(gameboard);
+			con = new ExplorationController(gameboard);
 			con.loadLevel(JSON.parse(window.localStorage.getItem("currentLevel")) || "test");
 
 			/*loadResources("levels/test.json", JSON).then(items => {
