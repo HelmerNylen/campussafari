@@ -532,7 +532,7 @@ class Editor {
 	}
 
 	static async setupEditor() {
-		let tilesets = (await loadResources(Editor.tilesetFiles.map(f => "tilesets/" + f))).map(i => new Tileset(i, 32));
+		let tilesets = (await Resource.load(Editor.tilesetFiles.map(f => "tilesets/" + f))).map(i => new Tileset(i, 32));
 		let tilesetCanvas = document.getElementById("tileset");
 		let patchCanvas = document.getElementById("patch");
 		let levelCanvas = document.getElementById("level");

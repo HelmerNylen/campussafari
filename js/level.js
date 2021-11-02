@@ -42,7 +42,7 @@ class Level {
 	}
 
 	static async getTilesets(json) {
-		const images = await loadResources(json.tilesets.map(ts => "tilesets/" + ts.file));
+		const images = await Resource.load(json.tilesets.map(ts => "tilesets/" + ts.file));
 
 		const tilesets = json.tilesets.map((ts, i) => new Tileset(
 			images[i],

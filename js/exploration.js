@@ -188,7 +188,7 @@ class ExplorationController {
 			throw Error("Invalid level: " + level);
 		let json;
 		try {
-			json = (await loadResources(`levels/${level}.json`, JSON))[0];
+			json = await Resource.load(`levels/${level}.json`, JSON);
 		} catch (e) {
 			console.error("Could not load level: " + level);
 			throw e;
