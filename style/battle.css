@@ -1,0 +1,52 @@
+#renderingwindow {
+	position: relative;
+}
+
+#battlearea {
+	width: 100%;
+	height: 100%;
+	position: absolute;
+	top: 0;
+	left: 0;
+}
+
+.teamfield {
+	text-align: center;
+	/* border: 1px solid blue; */
+}
+
+.teamfield canvas {
+	position: relative;
+	top: 10%;
+	max-height: 75%;
+	max-width: 40%;
+	padding: 0 4%;
+}
+
+#opponents {
+	position: absolute;
+	top: 0;
+	left: 40%;
+	width: 60%;
+	height: 50%;
+}
+
+#middlelayer {
+	position: absolute;
+	top: 0;
+	left: 0;
+}
+
+#allies {
+	position: absolute;
+	top: 50%;
+	left: 0;
+	width: 60%;
+	height: 50%;
+}
+
+#coveringlayer {
+	position: absolute;
+	top: 0;
+	left: 0;
+}

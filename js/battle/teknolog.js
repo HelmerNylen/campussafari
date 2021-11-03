@@ -1,5 +1,8 @@
-class Teknolog {
+const gabbeImg = Resource.addAsset("sprites/gabbe.png");
+const helmerImg = Resource.addAsset("sprites/helmer.png");
+const jonasImg = Resource.addAsset("sprites/jonas.png");
 
+class Teknolog {
 	/**
 	 * 
 	 * @param {string} name 
@@ -8,6 +11,7 @@ class Teknolog {
 	constructor(name, type) {
 		this.name = name;
 		this.type = type;
+		this.image = Resource.getAsset([gabbeImg, helmerImg, jonasImg][Math.floor(Math.random() * 3)]);
 		this.moves = [
 			new Move("Standard", this.type, 30, 20),
 			new Move("Powerful", this.type, 60, 10),
