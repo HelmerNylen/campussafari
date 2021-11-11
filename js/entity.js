@@ -2,7 +2,9 @@ const MovementType = {
 	"Static": 0,
 	"Patrol": 1,
 	"Wander": 2,
-	"Player": 3
+	"Player": 3,
+	"WalkOnce": 4,
+	"Follow": 5
 };
 
 const Direction = {
@@ -34,6 +36,7 @@ class Movement {
 			case MovementType.Static:
 				break;
 			case MovementType.Patrol:
+			case MovementType.WalkOnce:
 				this.path = Movement._uncompressPath(data);
 				break;
 			case MovementType.Wander:
@@ -47,6 +50,8 @@ class Movement {
 				this.turnChance = data["turnChance"] || 0.6;
 				this.wanderWaitTime = () => ENTITY_PACE * MAGIC_NUMBER * this.waitTimeMultiplier * (1 + Math.random() * 0.5);
 				break;
+			case MovementType.Follow:
+				throw new Error("Not yet implemented");
 			case MovementType.Player:
 				break;
 		}
@@ -134,6 +139,14 @@ class Movement {
 					}
 					break;
 
+				case "turn":
+				case "walk":
+					res.push([pathElement[0].toLowerCase(), pathElement[1]]);
+					break;
+				case "wait":
+					res.push(["wait"]);
+					break;
+
 				default:
 					throw Error("Cannot parse path element: " + pathElement);
 			}
@@ -196,8 +209,9 @@ class Entity {
 			this.moveTo(Math.round(this.x), Math.round(this.y));
 		}
 
-		if (this.movement.type === MovementType.Patrol)
-			this.patrolIndex = 0;
+		this.patrolIndex = 0;
+		this.onArriveCallbacks = [];
+		this.onPathEndCallbacks = [];
 
 		this.interaction = interaction;
 
@@ -286,6 +300,45 @@ class Entity {
 		}
 	}
 
+	overrideMovement(path) {
+		// Förmodligen inte en jättebra idé att promenera bort Patrol-entities
+		// från sin path, eller Wander-entities från sitt område,
+		// eller Follow-entities överhuvudtaget heller. Men WalkOnce går
+		// i princip garanterat sönder.
+		if (this.movement.type === MovementType.WalkOnce)
+			console.warn("May be doing nested movement overriding, so certain callbacks may be called when they should not. You probably want to rethink what you are doing.");
+		const originalMovement = this.movement;
+		const originalPatrolIndex = this.patrolIndex;
+		this.movement = new Movement(MovementType.WalkOnce, path);
+		this.patrolIndex = 0;
+		this.onPathEndCallbacks.push(() => {
+			this.movement = originalMovement;
+			this.originalPatrolIndex = originalPatrolIndex;
+			return true;
+		});
+	}
+
+	/**
+	 * Körs när en entity stannar efter att ha gått en "sekvens"
+	 * (framförallt om den blir klar med en path).
+	 */
+	onPathEnd(gridX, gridY) {
+		if (this.onPathEndCallbacks && this.onPathEndCallbacks.length)
+			this.onPathEndCallbacks = this.onPathEndCallbacks.slice().filter(cb => !cb(gridX, gridY));
+
+		if (this.movement.type === MovementType.WalkOnce) {
+			this.movement = new Movement(MovementType.Static);
+			this.patrolIndex = 0;
+		}
+	}
+	/**
+	 * Körs varje gång en entity stannat i en ny ruta.
+	 */
+	onArrive(gridX, gridY) {
+		if (this.onArriveCallbacks && this.onArriveCallbacks.length)
+			this.onArriveCallbacks = this.onArriveCallbacks.slice().filter(cb => !cb(gridX, gridY));
+	}
+
 	/** Run when an entity is being interacted with (e.g. spoken with by the player) */
 	interactWith(incomingFrom) {
 		if (this.movement.type !== MovementType.Static) {
@@ -320,11 +373,15 @@ class Entity {
 	_getMovementInstruction(userinput, inputDuration) {
 		if (this.movement.type === MovementType.Static)
 			return;
+
+		if (this.movementProgress === 1)
+			this.onArrive(this.gridX, this.gridY);
+
 		// If responding to player input and input is received,
 		// set direction and start walking
-		else if (this.movement.type === MovementType.Player && userinput !== null) {
-			// Only accept input if we are standing still or at the end of a step
-			if (this.movementProgress === null || this.movementProgress === 1) {
+		if (this.movement.type === MovementType.Player) {
+			if (userinput !== null && (this.movementProgress === null || this.movementProgress === 1)) {
+				// Only accept input if we are standing still or at the end of a step
 				switch (userinput) {
 					case Direction.North:
 					case Direction.South:
@@ -353,9 +410,17 @@ class Entity {
 						break;
 				}
 			}
+			// Arrive at the end of path when the user stops a continuous movement
+			if (this.movementProgress === 1)
+				this.onPathEnd(this.gridX, this.gridY);
 		}
-		else if (this.movement.type === MovementType.Patrol) {
+		else if (this.movement.type === MovementType.Patrol || this.movement.type == MovementType.WalkOnce) {
 			if (this.movementProgress === null || this.movementProgress === 1) {
+				if (this.patrolIndex >= this.movement.path.length) {
+					this.patrolIndex -= this.movement.path.length;
+					this.onPathEnd(this.gridX, this.gridY);
+					return this._getMovementInstruction(userinput, inputDuration);
+				}
 				const instruction = this.movement.path[this.patrolIndex];
 				
 				switch (instruction[0]) {
@@ -364,7 +429,7 @@ class Entity {
 						this._currentSprite = null;
 						if (this.canMove(this.direction)) {
 							this.move(this.direction);
-							this.patrolIndex = (this.patrolIndex + 1) % this.movement.path.length;
+							this.patrolIndex++;
 							this.movementProgress = 0;
 						} else
 							this.waitTimer = ENTITY_PACE;
@@ -373,14 +438,17 @@ class Entity {
 					case "turn":
 						this.direction = instruction[1];
 						this._currentSprite = null;
-						this.patrolIndex = (this.patrolIndex + 1) % this.movement.path.length;
+						this.patrolIndex++;
 						this.waitTimer = TURN_DURATION * 2;
 						break;
 
 					case "wait":
-						this.patrolIndex = (this.patrolIndex + 1) % this.movement.path.length;
+						this.patrolIndex++;
 						this.waitTimer = ENTITY_PACE;
 						break;
+
+					default:
+						throw new Error(`Unknown instruction "${instruction[0]}"`);
 				}
 			}
 		}
@@ -405,8 +473,10 @@ class Entity {
 					} else // No directions available, wait
 						this.waitTimer = this.movement.wanderWaitTime();
 				}
-			} else if (this.movementProgress === 1)
+			} else if (this.movementProgress === 1) {
 				this.waitTimer = this.movement.wanderWaitTime();
+				this.onPathEnd(this.gridX, this.gridY);
+			}
 		}
 	}
 
@@ -444,7 +514,7 @@ class Entity {
 			movementProgress: this.movementProgress,
 			waitTimer: this.waitTimer
 		};
-		if (this.movement.type === MovementType.Patrol)
+		if (this.movement.type === MovementType.Patrol || this.movement.type == MovementType.WalkOnce)
 			state.patrolIndex = this.patrolIndex;
 
 		return state;
@@ -455,7 +525,7 @@ class Entity {
 		this.direction = state.direction;
 		this.movementProgress = state.movementProgress;
 		this.waitTimer = state.waitTimer;
-		if (this.movement.type === MovementType.Patrol)
+		if (this.movement.type === MovementType.Patrol || this.movement.type == MovementType.WalkOnce)
 			this.patrolIndex = state.patrolIndex;
 
 		if (this.movementProgress === null) {

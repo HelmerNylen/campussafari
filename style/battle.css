@@ -13,6 +13,7 @@
 .teamfield {
 	text-align: center;
 	/* border: 1px solid blue; */
+	white-space: nowrap;
 }
 
 .teamfield canvas {
