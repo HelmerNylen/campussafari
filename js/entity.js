@@ -309,8 +309,12 @@ class Entity {
 			console.warn("May be doing nested movement overriding, so certain callbacks may be called when they should not. You probably want to rethink what you are doing.");
 		const originalMovement = this.movement;
 		const originalPatrolIndex = this.patrolIndex;
-		this.movement = new Movement(MovementType.WalkOnce, path);
-		this.patrolIndex = 0;
+		if (path !== null) {
+			this.movement = new Movement(MovementType.WalkOnce, path);
+			this.patrolIndex = 0;
+		} else {
+			this.movement = new Movement(MovementType.Static);
+		}
 		this.onPathEndCallbacks.push(() => {
 			this.movement = originalMovement;
 			this.originalPatrolIndex = originalPatrolIndex;
@@ -340,10 +344,13 @@ class Entity {
 	}
 
 	/** Run when an entity is being interacted with (e.g. spoken with by the player) */
-	interactWith(incomingFrom) {
+	interactWith(incomingFrom, other) {
 		if (this.movement.type !== MovementType.Static) {
 			this.direction = incomingFrom;
 			this._currentSprite = null;
+			// TODO: fixa nåt bra sätt att komma ihåg vilka som var inblandade i en dialog,
+			// så att de kan fortsätta gå när man pratat klart
+			// this.overrideMovement(null);
 		}
 		
 		if (this.interaction)
@@ -355,8 +362,10 @@ class Entity {
 		const lookAtX = Movement.nextX(this.gridX, this.direction);
 		const lookAtY = Movement.nextY(this.gridY, this.direction);
 		ExplorationController.instance.entities.forEach(e => {
-			if (e.gridX === lookAtX && e.gridY === lookAtY)
-				e.interactWith((this.direction + 2) % 4); // Opposite direction
+			if (e.gridX === lookAtX && e.gridY === lookAtY) {
+				// Opposite direction
+				e.interactWith((this.direction + 2) % 4, this);
+			}
 		});
 	}
 
@@ -381,8 +390,11 @@ class Entity {
 		// set direction and start walking
 		if (this.movement.type === MovementType.Player) {
 			if (userinput !== null && (this.movementProgress === null || this.movementProgress === 1)) {
+				if (ExplorationController.instance.queuedDialogue.length !== 0) {
+					ExplorationController.instance.continueDialogue(userinput);
+				}
 				// Only accept input if we are standing still or at the end of a step
-				switch (userinput) {
+				else switch (userinput) {
 					case Direction.North:
 					case Direction.South:
 					case Direction.East:

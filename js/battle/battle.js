@@ -88,6 +88,8 @@ class BattleController {
 		};
 		ExplorationController.instance.transitionTimer = ExplorationController.TRANSITION_LENGTH;
 		ExplorationController.instance.transitionType = Transition.FadeOut;
+		if (ExplorationController.instance.queuedDialogue.length !== 0)
+			ExplorationController.instance.continueDialogue();
 	}
 
 	static populateCanvas(canvasElement, imageOrCanvas) {

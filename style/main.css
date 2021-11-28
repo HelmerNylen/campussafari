@@ -1,3 +1,22 @@
+body {
+	font-family: Nunito, sans-serif;
+}
+
 .hidden {
 	display: none !important;
+}
+
+#renderingwindow {
+	position: relative;
+}
+
+#textbox {
+	position: absolute;
+	bottom: 0;
+	width: calc(100% - 13px);
+	/* 16 px per tile * (3 tiles margin - 1) * 3x scale */
+	height: 96px;
+	background: rgba(214, 214, 214, 0.95);
+	border: 1.5px solid black;
+	padding: 5px;
 }

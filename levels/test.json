@@ -247,7 +247,8 @@
 			},
 			"dialogue": [
 				"Äre vev?",
-				{"event": "battle"}
+				{"event": "battle"},
+				"Bra kämpat!"
 			]
 		},
 		{

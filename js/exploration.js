@@ -23,6 +23,8 @@ class ExplorationController {
 		this.adjacentLevels = null;
 
 		this.loadingMessage = null;
+		this.textbox = document.getElementById("textbox");
+		this.queuedDialogue = [];
 
 		this.timestampLast = null;
 		this.halt = null;
@@ -163,22 +165,42 @@ class ExplorationController {
 	}
 
 	playDialogue(dialogue) {
-		// Det ska väl till nån snygg UI-lösning på detta, ja
-		for (const line of dialogue) {
-			if (typeof line === "string")
-				alert(line);
-			else switch (line.event.toLowerCase()) {
-				case "battle":
-					this.haltNextUpdate(BattleController.instance.startTest.bind(BattleController.instance));
-					break;
-			}
-		}
-		
-		// alert() blockar keyup så för att inte skicka \inf dialoger får vi göra detta tills ett annat dialogsystem existerar
-		this.isPressed[ExplorationController.PLAYER_INTERACT] = false;
-		if (this.lastPressed === ExplorationController.PLAYER_INTERACT) {
+		const wasInDialogue = this.queuedDialogue.length !== 0;
+		this.queuedDialogue = this.queuedDialogue.concat(dialogue);
+		if (!wasInDialogue) {
+			this.handleDialogueLine(this.queuedDialogue[0]);
+			this.isPressed[ExplorationController.PLAYER_INTERACT] = false;
 			this.lastPressed = null;
 			this.pressDuration = 0;
+		}
+	}
+
+	handleDialogueLine(line) {
+		if (typeof line === "string") {
+			this.textbox.textContent = line;
+			this.textbox.classList.remove("hidden");
+		}
+		else switch (line.event.toLowerCase()) {
+			case "battle":
+				this.haltNextUpdate(BattleController.instance.startTest.bind(BattleController.instance));
+				this.textbox.classList.add("hidden");
+				break;
+		}
+	}
+
+	continueDialogue(userinput = null) {
+		if (userinput === null || userinput === ExplorationController.PLAYER_INTERACT) {
+			this.queuedDialogue.splice(0, 1);
+			this.isPressed[ExplorationController.PLAYER_INTERACT] = false;
+			this.lastPressed = null;
+			this.pressDuration = 0;
+
+			if (this.queuedDialogue.length === 0)
+				this.textbox.classList.add("hidden");
+			else
+				this.handleDialogueLine(this.queuedDialogue[0]);
+		} else {
+			// Move some sort of menu pointer
 		}
 	}
 
