@@ -199,7 +199,7 @@ class ExplorationController {
 
 	continueDialogue(userinput = null) {
 		if (userinput === null || userinput === ExplorationController.PLAYER_INTERACT) {
-			this.dialogue.lines.splice(0, 1);
+			this.dialogue.lines = this.dialogue.lines.slice(1);
 			this.isPressed[ExplorationController.PLAYER_INTERACT] = false;
 			this.lastPressed = null;
 			this.pressDuration = 0;

@@ -9,6 +9,7 @@ class BattleController {
 		this.middleCanvas = battlearea.children.middlelayer;
 		this.allyImgs = battlearea.children.allies.children;
 		this.topCanvas = battlearea.children.toplayer;
+		this.textbox = document.getElementById("textbox");
 		/**
 		 * The currently active battle
 		 * @type {Battle}
@@ -20,17 +21,46 @@ class BattleController {
 		BattleController.instance = this;
 	}
 
+	animate(element, properties, time, timingFunction = "linear", delay = 0) {
+		return new Promise(resolve => {
+			if (!(properties instanceof Array))
+				properties = [properties];
+			element.style["transition-property"] = properties.join(", ");
+			element.style["transition-duration"] = `${time}ms`;
+			element.style["transition-timing-function"] = timingFunction;
+			element.style["transition-delay"] = timingFunction;
+			element.addEventListener("transitionend", (e) => {
+				delete element.style["transition-property"];
+				delete element.style["transition-duration"];
+				delete element.style["transition-timing-function"];
+				delete element.style["transition-delay"];
+				resolve(e);
+			}, {once: true});
+		});
+	}
+
+	delay(time) {
+		return new Promise(resolve => setTimeout(resolve, time));
+	} 
+
 	animateIntro(backdrop) {
-		/**
-		 *@type {CanvasRenderingContext2D}
-		 */
-		const ctx = this.maincanvas.getContext("2d");
-		ctx.fillStyle = backdrop || "salmon";
-		ctx.fillRect(0, 0, this.maincanvas.width, this.maincanvas.height);
-		ctx.strokeText("Battle!", this.maincanvas.width / 2, this.maincanvas.height / 2);
 		this.battlearea.classList.remove("hidden");
 
-		setTimeout(this.endBattle.bind(this), 5000);
+		const ctxTop = this.topCanvas.getContext("2d");
+		ctxTop.drawImage(this.maincanvas, 0, 0);
+		this.topCanvas.style["opacity"] = 1;
+		
+		this.delay(200).then(() => {
+			const ctx = this.maincanvas.getContext("2d");
+			ctx.fillStyle = backdrop || "salmon";
+			ctx.fillRect(0, 0, this.maincanvas.width, this.maincanvas.height);
+			ctx.strokeText("Battle!", this.maincanvas.width / 2, this.maincanvas.height / 2);
+			
+			this.animate(this.topCanvas, "opacity", 500).then(() => {
+				setTimeout(this.endBattle.bind(this), 3000);
+			})
+			this.topCanvas.style["opacity"] = 0;
+		});
 	}
 
 	startTest() {
@@ -80,16 +110,25 @@ class BattleController {
 
 	endBattle() {
 		this.battle = null;
-		this.battlearea.classList.add("hidden");
-		ExplorationController.instance.resume();
-		ExplorationController.instance.onTransitionDone = () => {
-			ExplorationController.instance.transitionTimer = ExplorationController.TRANSITION_LENGTH;
-			ExplorationController.instance.transitionType = Transition.FadeIn;
-		};
-		ExplorationController.instance.transitionTimer = ExplorationController.TRANSITION_LENGTH;
-		ExplorationController.instance.transitionType = Transition.FadeOut;
-		if (ExplorationController.instance.inDialogue)
-			ExplorationController.instance.continueDialogue();
+		this.delay(200).then(() => {
+			this.topCanvas.style["opacity"] = 0;
+			const ctxTop = this.topCanvas.getContext("2d");
+			ctxTop.fillStyle = "black";
+			ctxTop.fillRect(0, 0, this.topCanvas.width, this.topCanvas.height);
+			this.animate(this.topCanvas, "opacity", ExplorationController.TRANSITION_LENGTH).then(() => {
+				this.delay(50).then(() => {
+					this.battlearea.classList.add("hidden");
+				});
+				ExplorationController.instance.resume();
+				ExplorationController.instance.onTransitionDone = () => {
+					if (ExplorationController.instance.inDialogue)
+						ExplorationController.instance.continueDialogue();
+				};
+				ExplorationController.instance.transitionTimer = ExplorationController.TRANSITION_LENGTH;
+				ExplorationController.instance.transitionType = Transition.FadeIn;
+			});
+			this.topCanvas.style["opacity"] = 1;
+		});
 	}
 
 	static populateCanvas(canvasElement, imageOrCanvas) {
