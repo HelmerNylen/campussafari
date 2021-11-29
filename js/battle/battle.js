@@ -88,7 +88,7 @@ class BattleController {
 		};
 		ExplorationController.instance.transitionTimer = ExplorationController.TRANSITION_LENGTH;
 		ExplorationController.instance.transitionType = Transition.FadeOut;
-		if (ExplorationController.instance.queuedDialogue.length !== 0)
+		if (ExplorationController.instance.inDialogue)
 			ExplorationController.instance.continueDialogue();
 	}
 

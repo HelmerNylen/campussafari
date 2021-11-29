@@ -238,15 +238,17 @@ class Entity {
 		if (json["animationSet"])
 			animationSet = new AnimationSet(tilesets, json["animationSet"]);
 
-		return new Entity(
+		const entity = new Entity(
 			json.x, json.y,
 			json["direction"],
 			animationSet,
 			new Movement(MovementType[json.movement.type], json.movement["data"] || null),
-			json["solid"],
-			// Default interaction is to play dialogue, if there is any
-			json["dialogue"] && (() => ExplorationController.instance.playDialogue(json["dialogue"]))
+			json["solid"]
 		);
+		// Default interaction is to play dialogue, if there is any
+		if (json["dialogue"])
+			entity.interaction = (player) => ExplorationController.instance.playDialogue(json["dialogue"], [player, entity]);
+		return entity;
 	}
 
 	canMove(direction) {
@@ -354,7 +356,7 @@ class Entity {
 		}
 		
 		if (this.interaction)
-			this.interaction();
+			this.interaction(other);
 	}
 
 	/** Interacts with the entity this entity is facing */
@@ -390,7 +392,7 @@ class Entity {
 		// set direction and start walking
 		if (this.movement.type === MovementType.Player) {
 			if (userinput !== null && (this.movementProgress === null || this.movementProgress === 1)) {
-				if (ExplorationController.instance.queuedDialogue.length !== 0) {
+				if (ExplorationController.instance.inDialogue) {
 					ExplorationController.instance.continueDialogue(userinput);
 				}
 				// Only accept input if we are standing still or at the end of a step

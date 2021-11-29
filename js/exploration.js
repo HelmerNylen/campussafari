@@ -24,7 +24,7 @@ class ExplorationController {
 
 		this.loadingMessage = null;
 		this.textbox = document.getElementById("textbox");
-		this.queuedDialogue = [];
+		this.dialogue = null;
 
 		this.timestampLast = null;
 		this.halt = null;
@@ -138,6 +138,8 @@ class ExplorationController {
 		ExplorationController.instance = this;
 	}
 
+	get inDialogue() { return this.dialogue !== null; }
+
 	areaAt(x, y) {
 		const a = this.areaAtOrNull(x, y);
 		if (a === null)
@@ -164,15 +166,22 @@ class ExplorationController {
 			this.areas[y * this.areasWidth + x] &= ~flag;
 	}
 
-	playDialogue(dialogue) {
-		const wasInDialogue = this.queuedDialogue.length !== 0;
-		this.queuedDialogue = this.queuedDialogue.concat(dialogue);
-		if (!wasInDialogue) {
-			this.handleDialogueLine(this.queuedDialogue[0]);
-			this.isPressed[ExplorationController.PLAYER_INTERACT] = false;
-			this.lastPressed = null;
-			this.pressDuration = 0;
-		}
+	playDialogue(dialogue, lockedEntities) {
+		if (this.dialogue !== null)
+			throw new Error("Dialogue already active");
+		
+		lockedEntities.forEach(e => {
+			if (e.movement.type !== MovementType.Player)
+				e.overrideMovement(null);
+		});
+		this.dialogue = {
+			lines: dialogue,
+			entities: lockedEntities
+		};
+		this.handleDialogueLine(this.dialogue.lines[0]);
+		this.isPressed[ExplorationController.PLAYER_INTERACT] = false;
+		this.lastPressed = null;
+		this.pressDuration = 0;
 	}
 
 	handleDialogueLine(line) {
@@ -190,15 +199,22 @@ class ExplorationController {
 
 	continueDialogue(userinput = null) {
 		if (userinput === null || userinput === ExplorationController.PLAYER_INTERACT) {
-			this.queuedDialogue.splice(0, 1);
+			this.dialogue.lines.splice(0, 1);
 			this.isPressed[ExplorationController.PLAYER_INTERACT] = false;
 			this.lastPressed = null;
 			this.pressDuration = 0;
 
-			if (this.queuedDialogue.length === 0)
+			if (this.dialogue.lines.length === 0) {
 				this.textbox.classList.add("hidden");
+				const entities = this.dialogue.entities;
+				this.dialogue = null;
+				entities.forEach(e => {
+					if (e.movement.type === MovementType.Static)
+						e.onPathEnd(e.gridX, e.gridY);
+				});
+			}
 			else
-				this.handleDialogueLine(this.queuedDialogue[0]);
+				this.handleDialogueLine(this.dialogue.lines[0]);
 		} else {
 			// Move some sort of menu pointer
 		}
