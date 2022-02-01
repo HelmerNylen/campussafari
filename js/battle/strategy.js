@@ -40,9 +40,12 @@ class StrategyPlayer extends Strategy {
 			const availableMoves = teknolog.moves.filter(move => move.currentUses > 0);
 			if (availableMoves.length === 0)
 				return Move.default();
-			return availableMoves[Math.floor(Math.random() * availableMoves.length)];
+			const prompt = availableMoves.map((move, i) => `${i + 1}: ${move.name}`).join("\n");
+			let chosenIndex;
+			do {
+				chosenIndex = parseInt(window.prompt(`Choose move for ${teknolog.name}: ${prompt}`, 1)) - 1;
+			} while (!(chosenIndex >= 0 && chosenIndex < availableMoves.length));
 		});
-		alert("Du valde: " + moves);
 		return moves;
 	}
 }

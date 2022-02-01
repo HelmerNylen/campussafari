@@ -19,4 +19,6 @@ body {
 	background: rgba(214, 214, 214, 0.95);
 	border: 1.5px solid black;
 	padding: 5px;
+	font-size: 32px;
+	overflow-y: hidden;
 }
