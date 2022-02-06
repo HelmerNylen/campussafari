@@ -1,3 +1,7 @@
+/**
+ * @typedef {number} Type
+ * @enum {Type}
+ */
 const Type = {
 	"Rock": 0,
 	"Paper": 1,

@@ -4,48 +4,58 @@ class Strategy {
 	}
 
 	/**
-	 * 
 	 * @param {Team} ownTeam 
 	 * @param {Team} opponentTeam 
 	 */
-	getMoves(ownTeam, opponentTeam) {
+	getMoveSingle(ownTeam, opponentTeam) {
+		throw new Error("Not implemented");
+	}
+
+	// TODO: kommunicera vem man väljer att sikta på i en double battle
+	getMoveDouble(ownTeam, opponentTeams, allyTeam) {
 		throw new Error("Not implemented");
 	}
 }
 
 class StrategyRandom extends Strategy {
 	/**
-	* 
 	* @param {Team} ownTeam 
 	* @param {Team} opponentTeam 
 	*/
-	getMoves(ownTeam, opponentTeam) {
-		return ownTeam.gang.map(teknolog => {
-			const availableMoves = teknolog.moves.filter(move => move.currentUses > 0);
-			if (availableMoves.length === 0)
-				return Move.default();
-			return availableMoves[Math.floor(Math.random() * availableMoves.length)];
-		});
+	getMoveSingle(ownTeam, opponentTeam = null) {
+		const availableMoves = ownTeam.active.moves.filter(move => move.currentUses > 0);
+		if (availableMoves.length === 0)
+			return Move.default();
+		return availableMoves[Math.floor(Math.random() * availableMoves.length)];
+	}
+
+	getMoveDouble(ownTeam, opponentTeams = null, allyTeam = null) {
+		this.getMoveSingle(ownTeam, null);
 	}
 }
 
 class StrategyPlayer extends Strategy {
 	/**
-	* 
 	* @param {Team} ownTeam 
 	* @param {Team} opponentTeam 
 	*/
-	getMoves(ownTeam, opponentTeam) {
-		const moves = ownTeam.gang.map(teknolog => {
-			const availableMoves = teknolog.moves.filter(move => move.currentUses > 0);
-			if (availableMoves.length === 0)
-				return Move.default();
-			const prompt = availableMoves.map((move, i) => `${i + 1}: ${move.name}`).join("\n");
-			let chosenIndex;
-			do {
-				chosenIndex = parseInt(window.prompt(`Choose move for ${teknolog.name}: ${prompt}`, 1)) - 1;
-			} while (!(chosenIndex >= 0 && chosenIndex < availableMoves.length));
-		});
-		return moves;
+	getMoveSingle(ownTeam, opponentTeam) {
+		const availableMoves = ownTeam.active.moves.filter(move => move.currentUses > 0);
+		if (availableMoves.length === 0)
+			return Move.default();
+		const prompt = availableMoves.map((move, i) => `${i + 1}: ${move.name}`).join("\n");
+		let chosenIndex;
+		do {
+			try {
+				chosenIndex = parseInt(window.prompt(`Choose move for ${ownTeam.active.name}: ${prompt}`, 1)) - 1;
+			} catch (e) {
+				chosenIndex = -1;
+			}
+		} while (!(chosenIndex >= 0 && chosenIndex < availableMoves.length));
+		return moves[chosenIndex];
+	}
+
+	getMoveDouble(ownTeam, opponentTeams, allyTeam) {
+		return this.getMoveSingle(ownTeam, null);
 	}
 }
