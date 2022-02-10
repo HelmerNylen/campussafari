@@ -10,6 +10,9 @@
 	text-align: center;
 	/* border: 1px solid blue; */
 	white-space: nowrap;
+	position: absolute;
+	width: 60%;
+	height: 40%;
 }
 
 .teamfield canvas {
@@ -19,13 +22,13 @@
 	max-width: 40%;
 	padding: 0 4%;
 }
+.teamfield canvas:last-child {
+	top: 20%;
+}
 
 #opponents {
-	position: absolute;
 	top: 0;
 	left: 40%;
-	width: 60%;
-	height: 50%;
 }
 
 #middlelayer {
@@ -35,11 +38,8 @@
 }
 
 #allies {
-	position: absolute;
 	top: 50%;
 	left: 0;
-	width: 60%;
-	height: 50%;
 }
 
 #coveringlayer {
@@ -47,3 +47,73 @@
 	top: 0;
 	left: 0;
 }
+
+#infobox {
+	position: relative;
+	width: 100%;
+	height: 100%;
+}
+
+#infoboxes > div {
+	position: absolute;
+	width: 33%;
+	min-height: 140px;
+}
+#info_opponents {
+	left: 20px;
+	top: 20px;
+}
+#info_allies {
+	right: 20px;
+	bottom: 70px;
+}
+
+.infobox {
+	background-color: blanchedalmond;
+	border: 2px solid dimgray;
+	margin-bottom: 10px;
+	padding: 7px;
+}
+
+#info_opponents > .infobox {
+	border-radius: 8px 8px 0 8px;
+}
+#info_opponents > .infobox:first-child {
+	position: relative;
+	left: 10px;
+}
+
+#info_allies > .infobox {
+	border-radius: 8px 8px 8px 0;
+}
+#info_allies > .infobox:last-child {
+	position: relative;
+	right: 10px;
+}
+
+.info_name {
+	text-overflow: ellipsis;
+	overflow: hidden;
+	white-space: nowrap;
+}
+
+.healthbar_container {
+    border: 1px solid #444;
+    height: 4px;
+    background-color: #444;
+    border-radius: 6px;
+    padding: 0 1px;
+	margin: 4px 0;
+}
+.healthbar_bar {
+    height: 50%;
+    margin-top: 1px;
+    background-color: limegreen;
+    width: 100%;
+    border-radius: 2px;
+}
+
+.healthtext {
+	text-align: right;
+}
+

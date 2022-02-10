@@ -10,6 +10,8 @@ class BattleController {
 		this.allyImgs = battlearea.children.allies.children;
 		this.topCanvas = battlearea.children.toplayer;
 		this.textbox = document.getElementById("textbox");
+		this.opponentInfoboxes = battlearea.children.infoboxes.children.info_opponents.children;
+		this.allyInfoboxes = battlearea.children.infoboxes.children.info_allies.children;
 		/**
 		 * The currently active battle
 		 * @type {Battle}
@@ -57,9 +59,10 @@ class BattleController {
 			ctx.strokeText("Battle!", this.maincanvas.width / 2, this.maincanvas.height / 2);
 			
 			this.animate(this.topCanvas, "opacity", 500).then(() => {
-				setTimeout(this.endBattle.bind(this), 3000);
+				// setTimeout(this.endBattle.bind(this), 3000);
 			})
 			this.topCanvas.style["opacity"] = 0;
+			this.infoboxesVisible(true);
 		});
 	}
 
@@ -129,6 +132,71 @@ class BattleController {
 			});
 			this.topCanvas.style["opacity"] = 1;
 		});
+		this.infoboxesVisible(false);
+	}
+
+	infoboxesVisible(visible = true) {
+		if (visible) {
+			for (let i = 0; i < this.opponentInfoboxes.length; i++) {
+				if (this.battle.foeTeams.length > i)
+					this.opponentInfoboxes[i].classList.remove("hidden");
+				else
+					this.opponentInfoboxes[i].classList.add("hidden");
+			}
+			for (let i = 0; i < this.allyInfoboxes.length; i++) {
+				if (this.battle.friendTeams.length > i)
+					this.allyInfoboxes[i].classList.remove("hidden");
+				else
+					this.allyInfoboxes[i].classList.add("hidden");
+			}
+			this.updateInfoboxes();
+		} else {
+			for (const box of this.opponentInfoboxes)
+				box.classList.add("hidden");
+			for (const box of this.allyInfoboxes)
+				box.classList.add("hidden");
+		}
+	}
+
+	updateInfoboxes(transition = false) {
+		if (transition)
+			console.warn("Animated changes to info boxes not implemented");
+		
+		for (let i = 0; i < this.battle.foeTeams.length; i++) {
+			const box = this.opponentInfoboxes[i];
+			const teknolog = this.battle.foeTeams[i].active;
+			if (!teknolog) {
+				box.classList.add("hidden");
+				continue;
+			}
+			box.getElementsByClassName("info_name")[0].innerText = teknolog.name;
+			const hpRatio = teknolog.currentHp / teknolog.maxHp;
+			box.getElementsByClassName("healthbar_bar")[0].style = (
+				`width: ${hpRatio}%; `
+				+ `background-color: ${BattleController.colorFromHp(hpRatio)};`);
+		}
+		
+		for (let i = 0; i < this.battle.friendTeams.length; i++) {
+			const box = this.allyInfoboxes[i];
+			const teknolog = this.battle.friendTeams[i].active;
+			if (!teknolog) {
+				box.classList.add("hidden");
+				continue;
+			}
+			box.getElementsByClassName("info_name")[0].innerText = teknolog.name;
+			const hpRatio = teknolog.currentHp / teknolog.maxHp;
+			box.getElementsByClassName("healthbar_bar")[0].style = (
+				`width: ${hpRatio}%; `
+				+ `background-color: ${BattleController.colorFromHp(hpRatio)};`);
+			box.getElementsByClassName("current")[0].innerText = teknolog.currentHp;
+			box.getElementsByClassName("total")[0].innerText = teknolog.maxHp;
+		}
+	}
+
+	static colorFromHp(hp) {
+		const green = 2 * Math.min(hp, 0.5);
+		const red = 2 * Math.min(1 - hp, 0.5);
+		return `rgb(${red * 255}, ${green * 255}, 20)`
 	}
 
 	static populateCanvas(canvasElement, imageOrCanvas) {
