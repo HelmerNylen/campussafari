@@ -69,21 +69,28 @@ class BattleController {
 	}
 
 	startTest() {
+		const student = new Teknolog("Student", Type.Rock);
+		const labbasse = new Teknolog("Labbasse", Type.Scissors);
+		const larare = new Teknolog("Lärare", Type.Paper);
+		student.currentHp = Math.floor(student.currentHp * (0.1 + Math.random() * 0.9));
+		labbasse.currentHp = Math.floor(labbasse.currentHp * (0.1 + Math.random() * 0.9));
+		larare.currentHp = Math.floor(larare.currentHp * (0.1 + Math.random() * 0.9));
+
 		const playerTeam = new Team("Player Playersdottír", [
-			new Teknolog("Student", Type.Rock)
+			student,
 		], null, new StrategyPlayer());
 		if (Math.random() < 0.5) {
 			const opponentTeam = new Team("Motståndare Motståndarsson", [
-				new Teknolog("Labbasse", Type.Scissors),
-				new Teknolog("Lärare", Type.Paper)
+				labbasse,
+				larare,
 			], null, new StrategyRandom());
 			this.startSingle(playerTeam, opponentTeam);
 		} else {
 			const opponentTeamLeft = new Team("Motståndare Vänstersson", [
-				new Teknolog("Labbasse", Type.Scissors)
+				labbasse,
 			], null, new StrategyRandom());
 			const opponentTeamRight = new Team("Motståndare Högersson", [
-				new Teknolog("Lärare", Type.Paper)
+				larare,
 			], null, new StrategyRandom());
 			this.start1v2(playerTeam, opponentTeamLeft, opponentTeamRight);
 		}
@@ -174,7 +181,7 @@ class BattleController {
 			box.getElementsByClassName("info_name")[0].innerText = teknolog.name;
 			const hpRatio = teknolog.currentHp / teknolog.maxHp;
 			box.getElementsByClassName("healthbar_bar")[0].style = (
-				`width: ${hpRatio}%; `
+				`width: ${hpRatio * 100}%; `
 				+ `background-color: ${BattleController.colorFromHp(hpRatio)};`);
 		}
 		
@@ -188,7 +195,7 @@ class BattleController {
 			box.getElementsByClassName("info_name")[0].innerText = teknolog.name;
 			const hpRatio = teknolog.currentHp / teknolog.maxHp;
 			box.getElementsByClassName("healthbar_bar")[0].style = (
-				`width: ${hpRatio}%; `
+				`width: ${hpRatio * 100}%; `
 				+ `background-color: ${BattleController.colorFromHp(hpRatio)};`);
 			box.getElementsByClassName("current")[0].innerText = teknolog.currentHp;
 			box.getElementsByClassName("total")[0].innerText = teknolog.maxHp;
