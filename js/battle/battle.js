@@ -3,6 +3,8 @@ class BattleController {
 	 *  @type BattleController */
 	static instance = null;
 	constructor(maincanvas, battlearea) {
+		if (BattleController.instance)
+			throw new Error("There is already an active battlecontroller");
 		this.maincanvas = maincanvas;
 		this.battlearea = battlearea;
 		this.opponentImgs = battlearea.children.opponents.children;
@@ -91,9 +93,9 @@ class BattleController {
 		this.battle = new Single(player, opponent);
 		this.animateIntro(backdrop);
 
-		BattleController.populateCanvas(this.allyImgs[0], player.gang[0].image);
+		BattleController.populateCanvas(this.allyImgs[0], player.active.image);
 		BattleController.populateCanvas(this.allyImgs[1], null);
-		BattleController.populateCanvas(this.opponentImgs[0], opponent.gang[0].image);
+		BattleController.populateCanvas(this.opponentImgs[0], opponent.active.image);
 		BattleController.populateCanvas(this.opponentImgs[1], null);
 	}
 
@@ -101,10 +103,10 @@ class BattleController {
 		this.battle = new Double(player, opponentLeft, opponentRight);
 		this.animateIntro(backdrop);
 
-		BattleController.populateCanvas(this.allyImgs[0], player.gang[0].image);
+		BattleController.populateCanvas(this.allyImgs[0], player.active.image);
 		BattleController.populateCanvas(this.allyImgs[1], null);
-		BattleController.populateCanvas(this.opponentImgs[0], opponentLeft.gang[0].image);
-		BattleController.populateCanvas(this.opponentImgs[1], opponentRight.gang[0].image);
+		BattleController.populateCanvas(this.opponentImgs[0], opponentLeft.active.image);
+		BattleController.populateCanvas(this.opponentImgs[1], opponentRight.active.image);
 	}
 	
 	startDouble(player, ally, opponentLeft, opponentRight, backdrop) {
@@ -218,22 +220,200 @@ class BattleController {
 }
 
 class Battle {
-	constructor(friendTeams, foeTeams) {
+	/**
+	 * @param {Team[]} friendTeams 
+	 * @param {Team[]} foeTeams 
+	 */
+	constructor(friendTeams, foeTeams, onEnd = null) {
 		this.friendTeams = friendTeams;
 		this.foeTeams = foeTeams;
+		this.allTeams = friendTeams.concat(this.foeTeams);
+
+		this.onEnd = onEnd;
+	}
+
+	get playerTeam() {
+		return this.friendTeams[0];
+	}
+
+	/**
+	 * @returns {Move[]} 
+	 */
+	getFriendMoves() {
+		throw new Error("Not implemented");
+	}
+
+	/**
+	 * @returns {Move[]} 
+	 */
+	getFoeMoves() {
+		throw new Error("Not implemented");
+	}
+
+	/**
+	 * @param {Move} moveA 
+	 * @param {Move} moveB 
+	 * @param {Team} teamA 
+	 * @param {Team} teamB 
+	 */
+	compareMoveSpeed(moveA, moveB, teamA, teamB) {
+		if (moveA.precedence !== moveB.precedence)
+			return moveA.precedence - moveB.precedence;
+		return teamA.active.modifiedSpeed - teamB.active.modifiedSpeed;
+	}
+
+	isFriendTeam(team) {
+		return this.friendTeams.findIndex(t => t === team) !== -1;
+	}
+
+	isFoeTeam(team) {
+		return this.foeTeams.findIndex(t => t === team) !== -1;
+	}
+
+	isOpponentOf(referenceTeam, team) {
+		return this.isFriendTeam(referenceTeam) ^ this.isFriendTeam(team);
+	}
+
+	getAlliesOf(team) {
+		return this.isFriendTeam(team) ? this.friendTeams : this.foeTeams;
+	}
+
+	getOpponentsOf(team) {
+		return this.isFriendTeam(team) ? this.foeTeams : this.friendTeams;
+	}
+
+	/**
+	 * @param {Move} move 
+	 * @param {Team} originatingTeam 
+	 */
+	performMove(move, originatingTeam) {
+		console.log(`${originatingTeam.active.name} performed ${move.name}!`);
+		let target = null;
+		const friendlies = this.getAlliesOf(originatingTeam);
+		const opponents = this.getOpponentsOf(originatingTeam);
+
+		let possibletargets = [];
+		if (move.target & MoveTarget.Self)
+			possibletargets.push(originatingTeam);
+		if (move.target & MoveTarget.Ally && friendlies.length !== 1)
+			possibletargets.push(friendlies.find(t => t !== originatingTeam));
+		if (move.target & MoveTarget.Opponent)
+			possibletargets = possibletargets.concat(opponents);
+		
+		possibletargets = possibletargets.filter(team => team.active !== null);
+
+		if (move.target & MoveTarget.HitsAll) {
+			target = possibletargets;
+			if (target.length === 0)
+				throw new Error(`HitsAll bit set but no targets specified on move '${move.name}'`);
+		} else if (possibletargets.length !== 0) {
+			target = possibletargets[Math.floor(Math.random() * possibletargets.length)];
+		}
+
+		move.perform(originatingTeam, target);
+	}
+
+	/**
+	 * @param {Team} team 
+	 */
+	knockedOutActive(team) {
+		console.log(`${originatingTeam.active.name} was knocked out!`);
+
+		const inBattle = this.getAlliesOf(team).map(
+			allied => allied.active
+		);
+		const canSendOut = team.members.filter(
+			teknolog => !teknolog.isKnockedOut && (inBattle.findIndex(t => t === teknolog) === -1)
+		);
+		if (canSendOut.length !== 0)
+			team.active = canSendOut[0];
+		else {
+			team.active = null;
+			if (this.getAlliesOf(team).every(team => team.active === null)) {
+				const friendliesWon = this.isFoeTeam(team);
+				console.log(`Battle ended. ${friendliesWon ? 'Player side' : 'Opponents'} won!`);
+				if (this.onEnd)
+					this.onEnd(friendliesWon);
+			}
+		}
+	}
+
+	turn() {
+		const friendMoves = new Map(this.getFriendMoves().map((move, index) => [this.friendTeams[index], move]));
+		const foeMoves = new Map(this.getFoeMoves().map((move, index) => [this.foeTeams[index], move]));
+		const allMoves = new Map([...friendMoves, ...foeMoves]);
+
+		const moveOrder = [...allMoves].sort(([teamA, moveA], [teamB, moveB]) => this.compareMoveSpeed(moveA, moveB, teamA, teamB));
+
+		for (const [teamPerformingMove, move] of moveOrder) {
+			this.performMove(move, teamPerformingMove);
+
+			// Check for knocked out participants, first on the opponents' side
+			const opponentsFirst = this.allTeams.sort(
+				(teamA, teamB) => this.isOpponentOf(teamPerformingMove, teamB) - this.isOpponentOf(teamPerformingMove, teamA)
+			);
+			for (const teamToCheck of opponentsFirst) {
+				console.log(`Checking team of ${teamToCheck.leaderName}`);
+				if (teamToCheck.active !== null && teamToCheck.active.isKnockedOut)
+					this.knockedOutActive(teamToCheck);
+			}
+		}
 	}
 }
 
 class Single extends Battle {
+	/**
+	 * @param {Team} player 
+	 * @param {Team} opponent 
+	 */
 	constructor(player, opponent) {
-		super([player, null], [opponent, null]);
+		super([player], [opponent]);
 		console.log("Init single battle");
+	}
+
+	get opponentTeam() {
+		return this.foeTeams[0];
+	}
+
+	getFriendMoves() {
+		return [this.playerTeam.strategy.getMoveSingle(this.playerTeam, this.opponentTeam)];
+	}
+
+	getFoeMoves() {
+		return [this.opponentTeam.strategy.getMoveSingle(this.opponentTeam, this.playerTeam)];
 	}
 }
 
 class Double extends Battle {
-	constructor(player, opponentLeft, opponentRight, ally = null) {
-		super([player, ally], [opponentLeft, opponentRight]);
+	/**
+	 * @param {Team} player 
+	 * @param {Team} opponentLeft 
+	 * @param {Team} opponentRight 
+	 * @param {Team} ally 
+	 */
+	constructor(player, opponentLeft, opponentRight = null, ally = null) {
+		super(
+			[player, ally || new PseudoTeam(player)],
+			[opponentLeft, opponentRight || new PseudoTeam(opponentLeft)],
+		);
 		console.log("Init double battle");
+	}
+
+	get allyTeam() {
+		return this.friendTeams[1];
+	}
+
+	getFriendMoves() {
+		return [
+			this.playerTeam.strategy.getMoveDouble(this.playerTeam, this.foeTeams, this.allyTeam),
+			this.allyTeam.strategy.getMoveDouble(this.allyTeam, this.foeTeams, this.playerTeam),
+		];
+	}
+
+	getFoeMoves() {
+		return [
+			this.foeTeams[0].strategy.getMoveDouble(this.foeTeams[0], this.friendTeams, this.foeTeams[1]),
+			this.foeTeams[1].strategy.getMoveDouble(this.foeTeams[1], this.friendTeams, this.foeTeams[0]),
+		];
 	}
 }

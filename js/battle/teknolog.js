@@ -50,6 +50,10 @@ class Teknolog {
 		this.modifiers = new StatModifiers();
 	}
 
+	get isKnockedOut() {
+		return this.currentHp <= 0;
+	}
+
 	get modifiedPhysicalAttack() {
 		return StatModifiers.toMultiplier(this.modifiers.physicalAttack) * this.physicalAttack;
 	}
@@ -68,5 +72,24 @@ class Teknolog {
 
 	get modifiedSpeed() {
 		return StatModifiers.toMultiplier(this.modifiers.speed) * this.speed;
+	}
+
+	/**
+	 * @param {Teknolog} attacker 
+	 * @param {Move} move 
+	 */
+	calculateIncomingDamage(attacker, move) {
+		const attackDefenceMultiplier = move.isSpecial ? attacker.modifiedSpecialAttack / this.modifiedSpecialDefence : attacker.modifiedPhysicalAttack / this.modifiedPhysicalDefence;
+		const typeMultiplier = getTypeEffectiveness(move.type, this.type);
+		const proficiencyMultiplier = move.type === attacker.type ? 2 : 1;
+
+		return move.baseDamage * attackDefenceMultiplier * typeMultiplier * proficiencyMultiplier;
+	}
+
+	/**
+	 * @param {number} amount 
+	 */
+	takeDamage(amount) {
+		this.currentHp = Math.max(0, this.currentHp - amount);
 	}
 }
