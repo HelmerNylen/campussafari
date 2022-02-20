@@ -23,6 +23,7 @@ class StrategyRandom extends Strategy {
 	* @param {Team} opponentTeam 
 	*/
 	getMoveSingle(ownTeam, opponentTeam = null) {
+		console.log(ownTeam.active.moves);
 		const availableMoves = ownTeam.active.moves.filter(move => move.currentUses > 0);
 		if (availableMoves.length === 0)
 			return Move.default();
@@ -40,6 +41,9 @@ class StrategyPlayer extends Strategy {
 	* @param {Team} opponentTeam 
 	*/
 	getMoveSingle(ownTeam, opponentTeam) {
+		console.log(ownTeam);
+		console.log(ownTeam.active);
+		console.log(ownTeam.active.moves);
 		const availableMoves = ownTeam.active.moves.filter(move => move.currentUses > 0);
 		if (availableMoves.length === 0)
 			return Move.default();
@@ -52,7 +56,7 @@ class StrategyPlayer extends Strategy {
 				chosenIndex = -1;
 			}
 		} while (!(chosenIndex >= 0 && chosenIndex < availableMoves.length));
-		return moves[chosenIndex];
+		return availableMoves[chosenIndex];
 	}
 
 	getMoveDouble(ownTeam, opponentTeams, allyTeam) {

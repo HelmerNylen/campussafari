@@ -1,6 +1,15 @@
 body {
 	font-family: Nunito, sans-serif;
 }
+@media (prefers-dark-interface) {
+	body {
+  		color: #fed;
+		background: #222;
+	}
+	a {
+		color: #ff6600;
+	}
+}
 
 .hidden {
 	display: none !important;

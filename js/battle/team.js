@@ -22,7 +22,9 @@ class PseudoTeam {
 	 */
 	constructor(original, active = null) {
 		this.original = original;
-		this.active = active || original.members[1];
+		this.active = active;
+		if (this.active === null && original.members.length > 1)
+			this.active = original.members[1];
 	}
 
 	get strategy() { return this.original.strategy; }

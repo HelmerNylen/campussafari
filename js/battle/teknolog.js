@@ -34,10 +34,10 @@ class Teknolog {
 		this.type = type;
 		this.image = Resource.getAsset([gabbeImg, helmerImg, jonasImg][Math.floor(Math.random() * 3)]);
 		this.moves = [
-			new Move("Standard", this.type, 30, 20),
-			new Move("Powerful", this.type, 60, 10),
-			new Move("Useless", this.type, 0, 10),
-			new Move("Unavailable", this.type, 160, 0)
+			new Move("Standard", this.type, 30, false, 20, MoveTarget.Opponent),
+			new Move("Powerful", this.type, 60, true, 10, MoveTarget.HitsAll | MoveTarget.Everyone),
+			new Move("Useless", this.type, 0, false, 10, MoveTarget.Self),
+			new Move("Unavailable", this.type, 160, false, 0, MoveTarget.HitsAll | MoveTarget.Foes)
 		];
 		this.maxHp = Math.floor(Math.random() * 60 + 70);
 		this.physicalAttack = Math.floor(Math.random() * 20 + 10);
@@ -83,7 +83,7 @@ class Teknolog {
 		const typeMultiplier = getTypeEffectiveness(move.type, this.type);
 		const proficiencyMultiplier = move.type === attacker.type ? 2 : 1;
 
-		return move.baseDamage * attackDefenceMultiplier * typeMultiplier * proficiencyMultiplier;
+		return Math.ceil(move.baseDamage * attackDefenceMultiplier * typeMultiplier * proficiencyMultiplier);
 	}
 
 	/**

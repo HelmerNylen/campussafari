@@ -20,7 +20,8 @@ class BattleController {
 		 */
 		this.battle = null;
 
-		// ...
+		this.turnButton = document.getElementById("turnbutton");
+		this.turnButton.addEventListener("click", () => this.battle.turn());
 
 		BattleController.instance = this;
 	}
@@ -94,10 +95,14 @@ class BattleController {
 			], null, new StrategyRandom());
 			this.start1v2(playerTeam, opponentTeamLeft, opponentTeamRight);
 		}
+
+		this.turnButton.disabled = false;
 	}
 
 	startSingle(player, opponent, backdrop) {
 		this.battle = new Single(player, opponent);
+		this.battle.onEnd = this.endBattle.bind(this);
+		this.battle.onMoveDone = this.updateInfoboxes.bind(this);
 		this.animateIntro(backdrop);
 
 		BattleController.populateCanvas(this.allyImgs[0], player.active.image);
@@ -108,6 +113,7 @@ class BattleController {
 
 	start1v2(player, opponentLeft, opponentRight, backdrop) {
 		this.battle = new Double(player, opponentLeft, opponentRight);
+		this.battle.onEnd = this.endBattle.bind(this);
 		this.animateIntro(backdrop);
 
 		BattleController.populateCanvas(this.allyImgs[0], player.active.image);
@@ -120,7 +126,8 @@ class BattleController {
 		throw new Error("Not implemented");
 	}
 
-	endBattle() {
+	endBattle(playerWon) {
+		alert(playerWon ? "You won!" : "You lost :(");
 		this.battle = null;
 		this.delay(200).then(() => {
 			this.topCanvas.style["opacity"] = 0;
@@ -142,6 +149,8 @@ class BattleController {
 			this.topCanvas.style["opacity"] = 1;
 		});
 		this.infoboxesVisible(false);
+
+		this.turnButton.disabled = true;
 	}
 
 	infoboxesVisible(visible = true) {
@@ -237,6 +246,7 @@ class Battle {
 		this.allTeams = friendTeams.concat(this.foeTeams);
 
 		this.onEnd = onEnd;
+		this.onMoveDone = null;
 	}
 
 	get playerTeam() {
@@ -318,13 +328,15 @@ class Battle {
 		}
 
 		move.perform(originatingTeam, target);
+		if (this.onMoveDone)
+			this.onMoveDone();
 	}
 
 	/**
 	 * @param {Team} team 
 	 */
 	knockedOutActive(team) {
-		console.log(`${originatingTeam.active.name} was knocked out!`);
+		console.log(`${team.active.name} was knocked out!`);
 
 		const inBattle = this.getAlliesOf(team).map(
 			allied => allied.active
@@ -332,17 +344,21 @@ class Battle {
 		const canSendOut = team.members.filter(
 			teknolog => !teknolog.isKnockedOut && (inBattle.findIndex(t => t === teknolog) === -1)
 		);
-		if (canSendOut.length !== 0)
+		if (canSendOut.length !== 0) {
 			team.active = canSendOut[0];
+			console.log(`${team.leaderName} sent out ${team.active.name}`);
+		}
 		else {
 			team.active = null;
-			if (this.getAlliesOf(team).every(team => team.active === null)) {
+			if (this.getAlliesOf(team).every(ally => ally.active === null)) {
 				const friendliesWon = this.isFoeTeam(team);
 				console.log(`Battle ended. ${friendliesWon ? 'Player side' : 'Opponents'} won!`);
 				if (this.onEnd)
 					this.onEnd(friendliesWon);
+				return true;
 			}
 		}
+		return false;
 	}
 
 	turn() {
@@ -350,7 +366,7 @@ class Battle {
 		const foeMoves = new Map(this.getFoeMoves().map((move, index) => [this.foeTeams[index], move]));
 		const allMoves = new Map([...friendMoves, ...foeMoves]);
 
-		const moveOrder = [...allMoves].sort(([teamA, moveA], [teamB, moveB]) => this.compareMoveSpeed(moveA, moveB, teamA, teamB));
+		const moveOrder = [...allMoves].filter(([team, move]) => !!move).sort(([teamA, moveA], [teamB, moveB]) => this.compareMoveSpeed(moveA, moveB, teamA, teamB));
 
 		for (const [teamPerformingMove, move] of moveOrder) {
 			this.performMove(move, teamPerformingMove);
@@ -359,11 +375,14 @@ class Battle {
 			const opponentsFirst = this.allTeams.sort(
 				(teamA, teamB) => this.isOpponentOf(teamPerformingMove, teamB) - this.isOpponentOf(teamPerformingMove, teamA)
 			);
+			let ended = false;
 			for (const teamToCheck of opponentsFirst) {
 				console.log(`Checking team of ${teamToCheck.leaderName}`);
 				if (teamToCheck.active !== null && teamToCheck.active.isKnockedOut)
-					this.knockedOutActive(teamToCheck);
+					ended |= this.knockedOutActive(teamToCheck);
 			}
+			if (ended)
+				return;
 		}
 	}
 }
@@ -412,15 +431,15 @@ class Double extends Battle {
 
 	getFriendMoves() {
 		return [
-			this.playerTeam.strategy.getMoveDouble(this.playerTeam, this.foeTeams, this.allyTeam),
-			this.allyTeam.strategy.getMoveDouble(this.allyTeam, this.foeTeams, this.playerTeam),
+			this.playerTeam.active && this.playerTeam.strategy.getMoveDouble(this.playerTeam, this.foeTeams, this.allyTeam),
+			this.allyTeam.active && this.allyTeam.strategy.getMoveDouble(this.allyTeam, this.foeTeams, this.playerTeam),
 		];
 	}
 
 	getFoeMoves() {
 		return [
-			this.foeTeams[0].strategy.getMoveDouble(this.foeTeams[0], this.friendTeams, this.foeTeams[1]),
-			this.foeTeams[1].strategy.getMoveDouble(this.foeTeams[1], this.friendTeams, this.foeTeams[0]),
+			this.foeTeams[0].active && this.foeTeams[0].strategy.getMoveDouble(this.foeTeams[0], this.friendTeams, this.foeTeams[1]),
+			this.foeTeams[1].active && this.foeTeams[1].strategy.getMoveDouble(this.foeTeams[1], this.friendTeams, this.foeTeams[0]),
 		];
 	}
 }
